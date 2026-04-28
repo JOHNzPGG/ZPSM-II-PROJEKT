@@ -12,7 +12,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { colors, globalStyles } from '../constants/globalStyles';
+import { colors, globalStyles } from '../../constants/globalStyles';
 import { MOCK_COMPONENTS } from './components';
 
 export default function ConfigsScreen() {

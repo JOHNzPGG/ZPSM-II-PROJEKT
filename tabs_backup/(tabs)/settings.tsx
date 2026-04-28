@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { Alert, Text, TouchableOpacity, View } from 'react-native';
-import { colors, globalStyles } from '../constants/globalStyles';
+import { colors, globalStyles } from '../../constants/globalStyles';
 
 export default function SettingsScreen() {
   const router = useRouter();

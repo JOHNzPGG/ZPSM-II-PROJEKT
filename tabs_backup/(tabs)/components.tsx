@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, Text, View } from 'react-native';
-import { colors, globalStyles } from '../constants/globalStyles';
+import { colors, globalStyles } from '../../constants/globalStyles';
 
 // Przykładowe dane podzespołów (wyeksportowane do użytku w configs.tsx)
 export const MOCK_COMPONENTS = [
