@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DummyBottomNav, { NavKey } from '../components/DummyBottomNav';
+import ComponentsScreen from './components-screen';
+import ConfigsScreen from './configs-screen';
 import {
   ACTIVE_USER_KEY,
   LEGACY_USERNAME_KEY,
@@ -232,10 +234,28 @@ export default function HomeScreen() {
     </View>
   );
 
+  // Components tab renders its own full-screen scroll — bypass the shared ScrollView
+  if (activeView === 'components') {
+    return (
+      <View style={styles.screen}>
+        <ComponentsScreen />
+        <DummyBottomNav active={activeView} onChange={setActiveView} />
+      </View>
+    );
+  }
+
+  // Configs tab — full screen with own scroll
+  if (activeView === 'configs') {
+    return (
+      <View style={styles.screen}>
+        <ConfigsScreen />
+        <DummyBottomNav active={activeView} onChange={setActiveView} />
+      </View>
+    );
+  }
+
   const renderContent = () => {
     if (activeView === 'profile') return renderProfile();
-    if (activeView === 'components') return renderPlaceholder('Komponenty', 'Lista CPU, GPU, RAM i dysków z filtrowaniem po parametrach.', 'hardware-chip-outline');
-    if (activeView === 'configs') return renderPlaceholder('Konfiguracje', 'Menedżer maksymalnie 3 zestawów komputerowych użytkownika.', 'monitor-outline');
     if (activeView === 'threed') return renderPlaceholder('Widok 3D', 'Wizualizacja zestawu lub ekran porównawczy komponentów.', 'cube-outline');
     return renderHome();
   };
