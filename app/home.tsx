@@ -12,15 +12,39 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DummyBottomNav, { NavKey } from '../components/DummyBottomNav';
-
 import {
   ACTIVE_USER_KEY,
   LEGACY_USERNAME_KEY,
   userConfigsKey,
 } from '../constants/storageKeys';
+import { AccentName, AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
-import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
+// ─── Accent picker data ──────────────────────────────────────────────────────
+const ACCENTS: { key: AccentName; color: string; label: string }[] = [
+  { key: 'red',    color: '#E83040', label: 'Czerwony' },
+  { key: 'blue',   color: '#3584E4', label: 'Niebieski' },
+  { key: 'green',  color: '#2EC27E', label: 'Zielony' },
+  { key: 'purple', color: '#9141AC', label: 'Fioletowy' },
+  { key: 'orange', color: '#E8720C', label: 'Pomarańczowy' },
+];
+
+// ─── Quick action cards ──────────────────────────────────────────────────────
+type CardDef = {
+  title: string;
+  desc: string;
+  icon: string;
+  iconLib: 'ion' | 'mci';
+  accent: boolean;
+};
+
+const CARDS: CardDef[] = [
+  { title: 'Komponenty', desc: 'CPU, GPU, RAM, dyski', icon: 'chip', iconLib: 'mci', accent: false },
+  { title: 'Konfiguracje', desc: 'Twoje zestawy', icon: 'monitor-dashboard', iconLib: 'mci', accent: true },
+  { title: 'Kompatybilność', desc: 'Sprawdź zgodność', icon: 'shield-checkmark-outline', iconLib: 'ion', accent: false },
+  { title: 'Ulepszenia', desc: 'Propozycje modernizacji', icon: 'rocket-outline', iconLib: 'ion', accent: false },
+];
 
 export default function HomeScreen() {
   const [username, setUsername] = useState('użytkowniku');
@@ -28,54 +52,48 @@ export default function HomeScreen() {
   const [configsCount, setConfigsCount] = useState(0);
 
   const router = useRouter();
-  const { theme, themeName, toggleTheme } = useAppTheme();
+  const { theme, themeName, accentName, toggleTheme, setAccent } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(18)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
 
   useEffect(() => {
     const loadUser = async () => {
       const activeUser =
         (await AsyncStorage.getItem(ACTIVE_USER_KEY)) ??
         (await AsyncStorage.getItem(LEGACY_USERNAME_KEY));
-
       if (activeUser) {
         setUsername(activeUser);
-
         const rawConfigs = await AsyncStorage.getItem(userConfigsKey(activeUser));
-        const parsedConfigs = rawConfigs ? JSON.parse(rawConfigs) : [];
-        setConfigsCount(Array.isArray(parsedConfigs) ? parsedConfigs.length : 0);
+        const parsed = rawConfigs ? JSON.parse(rawConfigs) : [];
+        setConfigsCount(Array.isArray(parsed) ? parsed.length : 0);
       }
     };
-
     loadUser();
 
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 520,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 520,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start();
-  }, [fadeAnim, slideAnim]);
+  }, []);
+
+  // Re-animate on tab change
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    slideAnim.setValue(16);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, [activeView]);
 
   const handleLogout = () => {
     Alert.alert(
       'Zmień użytkownika',
-      'Aktywny pseudonim zostanie odłączony od aplikacji. Konfiguracje zostaną zachowane pod nazwą tego użytkownika.',
+      'Aktywny pseudonim zostanie odłączony od aplikacji. Konfiguracje zostaną zachowane.',
       [
-        {
-          text: 'Anuluj',
-          style: 'cancel',
-        },
+        { text: 'Anuluj', style: 'cancel' },
         {
           text: 'Wyloguj',
           style: 'destructive',
@@ -88,361 +106,571 @@ export default function HomeScreen() {
     );
   };
 
+  // ─── Render helpers ─────────────────────────────────────────────────────────
+
   const renderHome = () => (
     <>
-      <LinearGradient
-        colors={[theme.primary2, theme.primary]}
-        style={styles.heroCard}
-      >
-        <Text style={styles.heroEyebrow}>PC Upgrade Advisor</Text>
-        <Text style={styles.heroTitle}>Cześć, {username}!</Text>
-        <Text style={styles.heroSubtitle}>
-          Zarządzaj zestawami, sprawdzaj kompatybilność i planuj modernizację komputera.
-        </Text>
-      </LinearGradient>
+      {/* Hero */}
+      <View style={styles.hero}>
+        <View style={styles.heroTop}>
+          <View>
+            <Text style={styles.heroEyebrow}>Witaj z powrotem</Text>
+            <Text style={styles.heroTitle}>{username}</Text>
+          </View>
+          <View style={styles.heroAvatar}>
+            <Text style={styles.heroAvatarText}>{username.slice(0, 1).toUpperCase()}</Text>
+          </View>
+        </View>
 
-      <Text style={styles.sectionTitle}>Szybkie akcje</Text>
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          <StatBadge label="Zestawy" value={`${configsCount}/3`} theme={theme} styles={styles} />
+          <StatBadge label="Status" value="Aktywny" theme={theme} styles={styles} accent />
+          <StatBadge label="Motyw" value={themeName === 'dark' ? 'Ciemny' : 'Jasny'} theme={theme} styles={styles} />
+        </View>
+      </View>
 
-      <View style={styles.cardGrid}>
-        <DashboardCard
-          title="Komponenty"
-          text="Przeglądaj CPU, GPU, RAM i dyski z bazy."
-          emoji="🧩"
-          styles={styles}
-        />
-        <DashboardCard
-          title="Konfiguracje"
-          text={`Zapisane zestawy: ${configsCount}/3.`}
-          emoji="🖥️"
-          styles={styles}
-        />
-        <DashboardCard
-          title="Kompatybilność"
-          text="Sprawdź zgodność elementów zestawu."
-          emoji="✅"
-          styles={styles}
-        />
-        <DashboardCard
-          title="Ulepszenia"
-          text="Zobacz przyszłe sugestie rozbudowy."
-          emoji="🚀"
-          styles={styles}
-        />
+      {/* Section */}
+      <Text style={styles.sectionLabel}>SZYBKIE AKCJE</Text>
+
+      <View style={styles.grid}>
+        {CARDS.map((card, i) => (
+          <ActionCard key={i} card={card} index={i} theme={theme} styles={styles} />
+        ))}
+      </View>
+
+      {/* Bottom promo */}
+      <View style={styles.promoCard}>
+        <LinearGradient
+          colors={[theme.primary2, theme.primary]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.promoGradient}
+        >
+          <View style={styles.promoLeft}>
+            <Text style={styles.promoTitle}>Sprawdź kompatybilność</Text>
+            <Text style={styles.promoSub}>Upewnij się, że Twój zestaw gra razem.</Text>
+          </View>
+          <Ionicons name="arrow-forward-circle" size={36} color="rgba(255,255,255,0.8)" />
+        </LinearGradient>
       </View>
     </>
   );
 
   const renderProfile = () => (
     <>
-      <LinearGradient
-        colors={[theme.black, theme.background]}
-        style={styles.profileHeader}
-      >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {username.slice(0, 1).toUpperCase()}
-          </Text>
+      {/* Profile header */}
+      <View style={styles.profileHero}>
+        <View style={styles.profileAvatarWrap}>
+          <LinearGradient colors={[theme.primary2, theme.primary]} style={styles.profileAvatar}>
+            <Text style={styles.profileAvatarText}>{username.slice(0, 1).toUpperCase()}</Text>
+          </LinearGradient>
         </View>
-
         <Text style={styles.profileName}>{username}</Text>
-        <Text style={styles.profileSubtitle}>
-          Lokalny profil użytkownika
-        </Text>
-      </LinearGradient>
-
-      <View style={styles.profileCard}>
-        <Text style={styles.profileCardTitle}>Dane profilu</Text>
-        <Text style={styles.profileLine}>Pseudonim: {username}</Text>
-        <Text style={styles.profileLine}>Konfiguracje: {configsCount}/3</Text>
-        <Text style={styles.profileLine}>
-          Motyw: {themeName === 'dark' ? 'ciemny' : 'jasny'}
-        </Text>
+        <Text style={styles.profileSub}>Lokalny profil użytkownika</Text>
       </View>
 
-      <Pressable style={styles.secondaryButton} onPress={toggleTheme}>
-        <Text style={styles.secondaryButtonText}>ZMIEŃ MOTYW</Text>
+      {/* Info card */}
+      <View style={styles.infoCard}>
+        <InfoRow label="Pseudonim" value={username} theme={theme} styles={styles} />
+        <View style={styles.divider} />
+        <InfoRow label="Konfiguracje" value={`${configsCount} / 3`} theme={theme} styles={styles} />
+        <View style={styles.divider} />
+        <InfoRow label="Motyw" value={themeName === 'dark' ? 'Ciemny' : 'Jasny'} theme={theme} styles={styles} />
+      </View>
+
+      {/* Accent picker */}
+      <Text style={styles.sectionLabel}>KOLOR AKCENTU</Text>
+      <View style={styles.accentRow}>
+        {ACCENTS.map((a) => (
+          <Pressable key={a.key} onPress={() => setAccent(a.key)} style={styles.accentWrap}>
+            <View
+              style={[
+                styles.accentDot,
+                { backgroundColor: a.color },
+                accentName === a.key && styles.accentDotActive,
+              ]}
+            />
+            {accentName === a.key && (
+              <Text style={[styles.accentLabel, { color: theme.primary2 }]}>{a.label}</Text>
+            )}
+          </Pressable>
+        ))}
+      </View>
+
+      {/* Action buttons */}
+      <Pressable
+        style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.8 }]}
+        onPress={toggleTheme}
+      >
+        <Ionicons name={themeName === 'dark' ? 'sunny-outline' : 'moon-outline'} size={18} color={theme.text} />
+        <Text style={styles.secondaryBtnText}>
+          {themeName === 'dark' ? 'Przełącz na jasny' : 'Przełącz na ciemny'}
+        </Text>
       </Pressable>
 
-      <Pressable style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>WYLOGUJ / ZMIEŃ UŻYTKOWNIKA</Text>
+      <Pressable
+        style={({ pressed }) => [styles.dangerBtn, pressed && { opacity: 0.8 }]}
+        onPress={handleLogout}
+      >
+        <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+        <Text style={styles.dangerBtnText}>WYLOGUJ / ZMIEŃ UŻYTKOWNIKA</Text>
       </Pressable>
     </>
   );
 
-  const renderPlaceholder = (title: string, description: string) => (
-    <View style={styles.placeholderCard}>
+  const renderPlaceholder = (title: string, desc: string, iconName: string) => (
+    <View style={styles.placeholder}>
+      <View style={styles.placeholderIconWrap}>
+        <Ionicons name={iconName as any} size={40} color={theme.primary2} />
+      </View>
       <Text style={styles.placeholderTitle}>{title}</Text>
-      <Text style={styles.placeholderText}>{description}</Text>
-      <Text style={styles.placeholderBadge}>Widok roboczy</Text>
+      <Text style={styles.placeholderDesc}>{desc}</Text>
+      <View style={styles.placeholderBadge}>
+        <Text style={styles.placeholderBadgeText}>Wkrótce</Text>
+      </View>
     </View>
   );
 
   const renderContent = () => {
     if (activeView === 'profile') return renderProfile();
-
-    if (activeView === 'components') {
-      return renderPlaceholder(
-        'Komponenty',
-        'Tutaj później pojawi się lista CPU, GPU, RAM i dysków z filtrowaniem.',
-      );
-    }
-
-    if (activeView === 'configs') {
-      return renderPlaceholder(
-        'Konfiguracje',
-        'Tutaj później pojawi się menedżer maksymalnie 3 zestawów użytkownika.',
-      );
-    }
-
-    if (activeView === 'threed') {
-      return renderPlaceholder(
-        'Widok 3D',
-        'Tutaj można później dodać wizualizację zestawu albo ekran porównawczy.',
-      );
-    }
-
+    if (activeView === 'components') return renderPlaceholder('Komponenty', 'Lista CPU, GPU, RAM i dysków z filtrowaniem po parametrach.', 'hardware-chip-outline');
+    if (activeView === 'configs') return renderPlaceholder('Konfiguracje', 'Menedżer maksymalnie 3 zestawów komputerowych użytkownika.', 'monitor-outline');
+    if (activeView === 'threed') return renderPlaceholder('Widok 3D', 'Wizualizacja zestawu lub ekran porównawczy komponentów.', 'cube-outline');
     return renderHome();
   };
 
   return (
-    <LinearGradient
-      colors={[theme.background, theme.background2]}
-      style={styles.screen}
-    >
+    <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View
-          style={{
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          }}
-        >
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {renderContent()}
         </Animated.View>
       </ScrollView>
 
       <DummyBottomNav active={activeView} onChange={setActiveView} />
-    </LinearGradient>
-  );
-}
-
-function DashboardCard({
-  title,
-  text,
-  emoji,
-  styles,
-}: {
-  title: string;
-  text: string;
-  emoji: string;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  return (
-    <View style={styles.dashboardCard}>
-      <Text style={styles.cardEmoji}>{emoji}</Text>
-      <Text style={styles.dashboardCardTitle}>{title}</Text>
-      <Text style={styles.dashboardCardText}>{text}</Text>
     </View>
   );
 }
 
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function StatBadge({
+  label, value, theme, styles, accent = false,
+}: {
+  label: string; value: string; theme: AppTheme; styles: any; accent?: boolean;
+}) {
+  return (
+    <View style={[styles.statBadge, accent && { borderColor: theme.primary2 }]}>
+      <Text style={[styles.statValue, accent && { color: theme.primary2 }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ActionCard({
+  card, index, theme, styles,
+}: {
+  card: CardDef; index: number; theme: AppTheme; styles: any;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const pressIn = () => Animated.spring(scale, { toValue: 0.96, friction: 6, useNativeDriver: true }).start();
+  const pressOut = () => Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: true }).start();
+
+  return (
+    <Pressable onPressIn={pressIn} onPressOut={pressOut} style={styles.cardPressable}>
+      <Animated.View style={[styles.actionCard, { transform: [{ scale }] }, card.accent && { borderColor: theme.primary2 }]}>
+        <View style={[styles.cardIconWrap, card.accent && { backgroundColor: theme.primary2 }]}>
+          {card.iconLib === 'mci'
+            ? <MaterialCommunityIcons name={card.icon as any} size={22} color={card.accent ? '#fff' : theme.primary2} />
+            : <Ionicons name={card.icon as any} size={22} color={card.accent ? '#fff' : theme.primary2} />
+          }
+        </View>
+        <Text style={styles.cardTitle}>{card.title}</Text>
+        <Text style={styles.cardDesc}>{card.desc}</Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function InfoRow({ label, value, theme, styles }: { label: string; value: string; theme: AppTheme; styles: any }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 function createStyles(theme: AppTheme) {
+  const isLight = theme.name === 'light';
+  const neuElevation = {
+    shadowColor: theme.neuShadowDark,
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: isLight ? 0.16 : 0.55,
+    shadowRadius: 14,
+    elevation: 8,
+  };
+
   return StyleSheet.create({
     screen: {
       flex: 1,
+      backgroundColor: theme.background,
     },
-    scrollContent: {
-      paddingTop: 64,
+    scroll: {
+      paddingTop: 56,
       paddingHorizontal: 18,
-      paddingBottom: 130,
+      paddingBottom: 120,
     },
-    heroCard: {
-      borderRadius: 30,
-      padding: 24,
+
+    // ── Hero ────────────────────────────────────────────────────────────────
+    hero: {
+      backgroundColor: theme.card,
+      borderRadius: 28,
+      padding: 22,
       marginBottom: 26,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 18 },
-      shadowOpacity: 0.22,
-      shadowRadius: 24,
-      elevation: 9,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      ...neuElevation,
+    },
+    heroTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 20,
     },
     heroEyebrow: {
-      color: 'rgba(255,255,255,0.78)',
-      fontSize: 13,
-      fontWeight: '800',
+      color: theme.textSecondary,
+      fontSize: 12,
+      fontWeight: '600',
+      letterSpacing: 1.5,
       textTransform: 'uppercase',
-      letterSpacing: 1,
-      marginBottom: 10,
+      marginBottom: 4,
     },
     heroTitle: {
-      color: theme.white,
-      fontSize: 30,
-      fontWeight: '900',
-      marginBottom: 10,
-    },
-    heroSubtitle: {
-      color: 'rgba(255,255,255,0.86)',
-      fontSize: 15,
-      lineHeight: 22,
-    },
-    sectionTitle: {
       color: theme.text,
-      fontSize: 21,
+      fontSize: 28,
       fontWeight: '900',
-      marginBottom: 16,
+      letterSpacing: -0.5,
     },
-    cardGrid: {
-      gap: 14,
+    heroAvatar: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: theme.primary2,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+      elevation: 6,
     },
-    dashboardCard: {
+    heroAvatarText: {
+      color: '#FFF',
+      fontSize: 20,
+      fontWeight: '900',
+    },
+    statsRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    statBadge: {
+      flex: 1,
+      backgroundColor: theme.surfaceSunken,
+      borderRadius: 16,
+      padding: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    statValue: {
+      color: theme.text,
+      fontSize: 16,
+      fontWeight: '900',
+      marginBottom: 2,
+    },
+    statLabel: {
+      color: theme.muted,
+      fontSize: 10,
+      fontWeight: '600',
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+    },
+
+    // ── Section label ────────────────────────────────────────────────────────
+    sectionLabel: {
+      color: theme.muted,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 2,
+      marginBottom: 14,
+    },
+
+    // ── Action cards grid ────────────────────────────────────────────────────
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginBottom: 20,
+    },
+    cardPressable: {
+      width: '47.5%',
+    },
+    actionCard: {
       backgroundColor: theme.card,
-      borderRadius: 24,
-      padding: 18,
-      minHeight: 120,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.12,
-      shadowRadius: 18,
-      elevation: 5,
+      borderRadius: 22,
+      padding: 16,
+      minHeight: 130,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      ...neuElevation,
     },
-    cardEmoji: {
-      fontSize: 26,
-      marginBottom: 10,
+    cardIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: theme.surfaceSunken,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
     },
-    dashboardCardTitle: {
-      fontSize: 19,
-      fontWeight: '900',
-      color: theme.textDark,
+    cardTitle: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: '800',
+      marginBottom: 4,
+    },
+    cardDesc: {
+      color: theme.muted,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+
+    // ── Promo card ───────────────────────────────────────────────────────────
+    promoCard: {
+      borderRadius: 22,
+      overflow: 'hidden',
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 16,
+      elevation: 10,
       marginBottom: 8,
     },
-    dashboardCardText: {
-      fontSize: 14,
-      color: theme.muted,
-      lineHeight: 21,
-    },
-    profileHeader: {
-      borderRadius: 30,
-      padding: 26,
+    promoGradient: {
+      flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 18,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 16 },
-      shadowOpacity: 0.2,
-      shadowRadius: 24,
-      elevation: 8,
+      justifyContent: 'space-between',
+      padding: 22,
     },
-    avatar: {
-      width: 86,
-      height: 86,
-      borderRadius: 43,
-      backgroundColor: theme.primary,
-      borderWidth: 3,
-      borderColor: theme.white,
+    promoLeft: {
+      flex: 1,
+      marginRight: 12,
+    },
+    promoTitle: {
+      color: '#FFF',
+      fontSize: 17,
+      fontWeight: '900',
+      marginBottom: 4,
+    },
+    promoSub: {
+      color: 'rgba(255,255,255,0.75)',
+      fontSize: 13,
+    },
+
+    // ── Profile ──────────────────────────────────────────────────────────────
+    profileHero: {
+      alignItems: 'center',
+      paddingVertical: 28,
+      marginBottom: 20,
+    },
+    profileAvatarWrap: {
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      backgroundColor: theme.surfaceSunken,
       justifyContent: 'center',
       alignItems: 'center',
       marginBottom: 14,
+      ...neuElevation,
+      borderWidth: 2,
+      borderColor: theme.borderStrong,
     },
-    avatarText: {
-      color: theme.white,
-      fontSize: 34,
+    profileAvatar: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    profileAvatarText: {
+      color: '#FFF',
+      fontSize: 32,
       fontWeight: '900',
     },
     profileName: {
-      color: theme.white,
-      fontSize: 26,
+      color: theme.text,
+      fontSize: 24,
       fontWeight: '900',
+      marginBottom: 4,
     },
-    profileSubtitle: {
-      color: 'rgba(255,255,255,0.74)',
-      marginTop: 6,
-      fontSize: 14,
-    },
-    profileCard: {
-      backgroundColor: theme.card,
-      borderRadius: 24,
-      padding: 20,
-      marginBottom: 14,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.1,
-      shadowRadius: 14,
-      elevation: 4,
-    },
-    profileCardTitle: {
-      color: theme.textDark,
-      fontSize: 19,
-      fontWeight: '900',
-      marginBottom: 12,
-    },
-    profileLine: {
+    profileSub: {
       color: theme.muted,
-      fontSize: 15,
-      marginBottom: 8,
+      fontSize: 13,
     },
-    secondaryButton: {
+    infoCard: {
       backgroundColor: theme.card,
-      borderRadius: 18,
-      paddingVertical: 16,
-      alignItems: 'center',
-      marginBottom: 12,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      marginBottom: 26,
+      ...neuElevation,
     },
-    secondaryButtonText: {
-      color: theme.textDark,
-      fontWeight: '900',
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+    },
+    infoLabel: {
+      color: theme.muted,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    infoValue: {
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.border,
+      marginHorizontal: 16,
+    },
+    accentRow: {
+      flexDirection: 'row',
+      gap: 14,
+      marginBottom: 24,
+      alignItems: 'center',
+    },
+    accentWrap: {
+      alignItems: 'center',
+      gap: 6,
+    },
+    accentDot: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    accentDotActive: {
+      borderColor: theme.text,
+      transform: [{ scale: 1.15 }],
+    },
+    accentLabel: {
+      fontSize: 9,
+      fontWeight: '700',
       letterSpacing: 0.5,
     },
-    logoutButton: {
-      backgroundColor: theme.primary,
-      borderRadius: 18,
-      paddingVertical: 16,
+    secondaryBtn: {
+      backgroundColor: theme.card,
+      borderRadius: 16,
+      paddingVertical: 15,
+      flexDirection: 'row',
       alignItems: 'center',
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.16,
-      shadowRadius: 14,
-      elevation: 5,
+      justifyContent: 'center',
+      gap: 10,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      ...neuElevation,
     },
-    logoutButtonText: {
-      color: theme.white,
+    secondaryBtnText: {
+      color: theme.text,
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    dangerBtn: {
+      backgroundColor: theme.primary,
+      borderRadius: 16,
+      paddingVertical: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.5,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    dangerBtnText: {
+      color: '#FFF',
       fontWeight: '900',
-      letterSpacing: 0.4,
+      fontSize: 13,
+      letterSpacing: 1,
     },
-    placeholderCard: {
+
+    // ── Placeholder ──────────────────────────────────────────────────────────
+    placeholder: {
       backgroundColor: theme.card,
       borderRadius: 28,
-      padding: 24,
-      minHeight: 260,
+      padding: 32,
+      minHeight: 300,
       justifyContent: 'center',
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.14,
-      shadowRadius: 18,
-      elevation: 6,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      ...neuElevation,
+    },
+    placeholderIconWrap: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: theme.surfaceSunken,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
     },
     placeholderTitle: {
-      color: theme.textDark,
-      fontSize: 26,
+      color: theme.text,
+      fontSize: 22,
       fontWeight: '900',
       marginBottom: 10,
+      textAlign: 'center',
     },
-    placeholderText: {
+    placeholderDesc: {
       color: theme.muted,
-      fontSize: 15,
+      fontSize: 14,
       lineHeight: 22,
-      marginBottom: 18,
+      textAlign: 'center',
+      marginBottom: 22,
     },
     placeholderBadge: {
-      alignSelf: 'flex-start',
-      backgroundColor: theme.primary,
-      color: theme.white,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
+      backgroundColor: theme.surfaceSunken,
       borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 7,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+    },
+    placeholderBadgeText: {
+      color: theme.primary2,
       fontSize: 12,
-      fontWeight: '900',
-      overflow: 'hidden',
+      fontWeight: '800',
+      letterSpacing: 1,
     },
   });
 }

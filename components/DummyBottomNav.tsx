@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { ReactNode, useMemo, useRef } from 'react';
 import {
   Animated,
@@ -28,48 +27,14 @@ type NavItemProps = {
   theme: AppTheme;
 };
 
-function NavItem({
-  id,
-  label,
-  active,
-  onPress,
-  icon,
-  activeIcon,
-  styles,
-  theme,
-}: NavItemProps) {
+function NavItem({ id, label, active, onPress, icon, activeIcon, styles, theme }: NavItemProps) {
   const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
 
-  const pressIn = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 0.9,
-        useNativeDriver: true,
-        friction: 5,
-      }),
-      Animated.spring(translateY, {
-        toValue: active ? -4 : 2,
-        useNativeDriver: true,
-        friction: 5,
-      }),
-    ]).start();
-  };
+  const pressIn = () =>
+    Animated.spring(scale, { toValue: 0.88, friction: 6, tension: 120, useNativeDriver: true }).start();
 
-  const pressOut = () => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 5,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 5,
-      }),
-    ]).start();
-  };
+  const pressOut = () =>
+    Animated.spring(scale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }).start();
 
   return (
     <Pressable
@@ -80,25 +45,12 @@ function NavItem({
     >
       <Animated.View
         style={[
-          active ? styles.navItemActiveShell : styles.navItem,
-          {
-            transform: [{ scale }, { translateY }],
-          },
+          active ? styles.activeItem : styles.inactiveItem,
+          { transform: [{ scale }] },
         ]}
       >
-        {active ? (
-          <LinearGradient
-            colors={[theme.black, theme.primary]}
-            style={styles.activeGradient}
-          >
-            {activeIcon}
-          </LinearGradient>
-        ) : (
-          <>
-            {icon}
-            <Text style={styles.navLabel}>{label}</Text>
-          </>
-        )}
+        {active ? activeIcon : icon}
+        {!active && <Text style={styles.label}>{label}</Text>}
       </Animated.View>
     </Pressable>
   );
@@ -108,143 +60,126 @@ export default function DummyBottomNav({ active, onChange }: Props) {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
+  const items: Array<{
+    id: NavKey;
+    label: string;
+    icon: ReactNode;
+    activeIcon: ReactNode;
+  }> = [
+    {
+      id: 'components',
+      label: 'Części',
+      icon: <MaterialCommunityIcons name="chip" size={20} color={theme.muted} />,
+      activeIcon: <MaterialCommunityIcons name="chip" size={24} color={theme.primary2} />,
+    },
+    {
+      id: 'threed',
+      label: '3D',
+      icon: <Text style={styles.text3d}>3D</Text>,
+      activeIcon: <Text style={[styles.text3d, { color: theme.primary2, fontSize: 16 }]}>3D</Text>,
+    },
+    {
+      id: 'home',
+      label: 'Start',
+      icon: <Ionicons name="home-outline" size={22} color={theme.muted} />,
+      activeIcon: <Ionicons name="home" size={24} color={theme.primary2} />,
+    },
+    {
+      id: 'configs',
+      label: 'Zestawy',
+      icon: <MaterialCommunityIcons name="monitor-dashboard" size={20} color={theme.muted} />,
+      activeIcon: <MaterialCommunityIcons name="monitor-dashboard" size={24} color={theme.primary2} />,
+    },
+    {
+      id: 'profile',
+      label: 'Profil',
+      icon: <Ionicons name="person-outline" size={20} color={theme.muted} />,
+      activeIcon: <Ionicons name="person" size={24} color={theme.primary2} />,
+    },
+  ];
+
   return (
     <View style={styles.wrapper}>
-      <LinearGradient
-        colors={[theme.nav2, theme.nav]}
-        style={styles.nav}
-      >
-        <NavItem
-          id="components"
-          label="Części"
-          active={active === 'components'}
-          onPress={onChange}
-          styles={styles}
-          theme={theme}
-          icon={<MaterialCommunityIcons name="chip" size={22} color={theme.textDark} />}
-          activeIcon={<MaterialCommunityIcons name="chip" size={26} color={theme.white} />}
-        />
-
-        <NavItem
-          id="threed"
-          label="3D"
-          active={active === 'threed'}
-          onPress={onChange}
-          styles={styles}
-          theme={theme}
-          icon={<Text style={styles.nav3dText}>3D</Text>}
-          activeIcon={<Text style={styles.nav3dActiveText}>3D</Text>}
-        />
-
-        <NavItem
-          id="home"
-          label="Start"
-          active={active === 'home'}
-          onPress={onChange}
-          styles={styles}
-          theme={theme}
-          icon={<Ionicons name="arrow-up-circle-outline" size={25} color={theme.textDark} />}
-          activeIcon={<Ionicons name="arrow-up" size={30} color={theme.white} />}
-        />
-
-        <NavItem
-          id="configs"
-          label="Zestawy"
-          active={active === 'configs'}
-          onPress={onChange}
-          styles={styles}
-          theme={theme}
-          icon={<MaterialCommunityIcons name="monitor-dashboard" size={22} color={theme.textDark} />}
-          activeIcon={<MaterialCommunityIcons name="monitor-dashboard" size={27} color={theme.white} />}
-        />
-
-        <NavItem
-          id="profile"
-          label="Profil"
-          active={active === 'profile'}
-          onPress={onChange}
-          styles={styles}
-          theme={theme}
-          icon={<Ionicons name="person-outline" size={22} color={theme.textDark} />}
-          activeIcon={<Ionicons name="person" size={27} color={theme.white} />}
-        />
-      </LinearGradient>
+      <View style={styles.nav}>
+        {items.map((item) => (
+          <NavItem
+            key={item.id}
+            {...item}
+            active={active === item.id}
+            onPress={onChange}
+            styles={styles}
+            theme={theme}
+          />
+        ))}
+      </View>
     </View>
   );
 }
 
 function createStyles(theme: AppTheme) {
+  const isLight = theme.name === 'light';
+
   return StyleSheet.create({
     wrapper: {
       position: 'absolute',
       left: 0,
       right: 0,
       bottom: 0,
-      paddingHorizontal: 12,
-      paddingBottom: 12,
+      paddingHorizontal: 14,
+      paddingBottom: 16,
     },
     nav: {
-      height: 82,
-      borderRadius: 30,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.28)',
+      height: 76,
+      backgroundColor: theme.card,
+      borderRadius: 26,
       flexDirection: 'row',
       justifyContent: 'space-around',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.25,
-      shadowRadius: 22,
-      elevation: 12,
+      paddingHorizontal: 8,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      // Neumorphic shadow
+      shadowColor: theme.neuShadowDark,
+      shadowOffset: { width: 4, height: 4 },
+      shadowOpacity: isLight ? 0.18 : 0.6,
+      shadowRadius: 14,
+      elevation: 14,
     },
     pressable: {
-      width: 64,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    navItem: {
-      width: 54,
-      height: 54,
-      borderRadius: 27,
-      backgroundColor: theme.card,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    navItemActiveShell: {
-      width: 68,
-      height: 68,
-      borderRadius: 34,
-      marginTop: -28,
-      backgroundColor: theme.black,
-      borderWidth: 4,
-      borderColor: theme.white,
-      shadowColor: theme.shadow,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.24,
-      shadowRadius: 14,
-      elevation: 12,
-      overflow: 'hidden',
-    },
-    activeGradient: {
       flex: 1,
-      width: '100%',
-      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    activeItem: {
+      width: 52,
+      height: 52,
+      borderRadius: 18,
+      backgroundColor: theme.surfaceSunken,
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.primary2,
+      shadowColor: theme.primary2,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.4,
+      shadowRadius: 10,
+      elevation: 6,
     },
-    navLabel: {
-      display: 'none',
+    inactiveItem: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 3,
+      paddingVertical: 4,
     },
-    nav3dText: {
-      fontSize: 20,
+    label: {
+      color: theme.muted,
+      fontSize: 10,
+      fontWeight: '600',
+    },
+    text3d: {
+      fontSize: 14,
       fontWeight: '900',
-      color: theme.textDark,
-    },
-    nav3dActiveText: {
-      fontSize: 20,
-      fontWeight: '900',
-      color: theme.white,
+      color: theme.muted,
     },
   });
 }
