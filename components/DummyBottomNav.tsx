@@ -49,7 +49,7 @@ function NavItem({ id, label, active, onPress, icon, activeIcon, styles, theme }
     >
       <Animated.View style={[active ? styles.activeItem : styles.inactiveItem, { transform: [{ scale }] }]}>
         {active ? activeIcon : icon}
-        {!active && <Text style={styles.label}>{label}</Text>}
+        {!active && <Text style={styles.label} numberOfLines={1}>{label}</Text>}
       </Animated.View>
     </Pressable>
   );
@@ -78,9 +78,9 @@ export default function DummyBottomNav({ active, onChange, hidden = false }: Pro
     },
     {
       id: 'threed',
-      label: '3D',
-      icon: <Text style={styles.text3d}>3D</Text>,
-      activeIcon: <Text style={[styles.text3d, { color: theme.primary2, fontSize: 16 }]}>3D</Text>,
+      label: 'Porównanie',
+      icon: <Text style={styles.textVs}>VS</Text>,
+      activeIcon: <Text style={[styles.textVs, { color: theme.primary2, fontSize: 15 }]}>VS</Text>,
     },
     {
       id: 'home',
@@ -164,7 +164,7 @@ function createStyles(theme: AppTheme) {
       elevation: 6,
     },
     inactiveItem: { alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 4 },
-    label: { color: theme.muted, fontSize: 10, fontWeight: '600' },
-    text3d: { fontSize: 14, fontWeight: '900', color: theme.muted },
+    label: { color: theme.muted, fontSize: 9, fontWeight: '600', letterSpacing: 0.2 },
+    textVs: { fontSize: 13, fontWeight: '900', color: theme.muted, letterSpacing: 1 },
   });
 }
