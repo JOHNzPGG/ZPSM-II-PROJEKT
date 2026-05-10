@@ -38,7 +38,7 @@ const MAX_BUILDS = 3;
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
-export default function ConfigsScreen() {
+export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOpen?: (hidden: boolean) => void }) {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
@@ -87,6 +87,7 @@ export default function ConfigsScreen() {
     const updated = [...builds, newBuild];
     await saveBuilds(updated);
     setActiveBuild(newBuild);
+    onConfiguratorOpen?.(true);
     setShowNewModal(false);
   };
 
@@ -116,7 +117,7 @@ export default function ConfigsScreen() {
           onPress: async () => {
             const updated = builds.filter((b) => b.id !== id);
             await saveBuilds(updated);
-            if (activeBuild?.id === id) setActiveBuild(null);
+            if (activeBuild?.id === id) { setActiveBuild(null); onConfiguratorOpen?.(false); }
           },
         },
       ],
@@ -176,7 +177,7 @@ export default function ConfigsScreen() {
       <View style={styles.screen}>
         {/* Back header */}
         <View style={styles.configHeader}>
-          <Pressable style={styles.backBtn} onPress={() => setActiveBuild(null)}>
+          <Pressable style={styles.backBtn} onPress={() => { setActiveBuild(null); onConfiguratorOpen?.(false); }}>
             <Ionicons name="arrow-back" size={20} color={theme.text} />
           </Pressable>
           <View style={{ flex: 1 }}>
@@ -232,7 +233,7 @@ export default function ConfigsScreen() {
             build={build}
             theme={theme}
             styles={styles}
-            onOpen={() => setActiveBuild(build)}
+            onOpen={() => { setActiveBuild(build); onConfiguratorOpen?.(true); }}
             onDelete={() => handleDeleteBuild(build.id)}
           />
         ))}

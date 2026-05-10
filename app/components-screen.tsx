@@ -115,7 +115,6 @@ export default function ComponentsScreen() {
             onPress={() => setSelectedComponent(component)}
           />
         ))}
-        <View style={{ height: 24 }} />
       </ScrollView>
 
       {/* ── Detail modal ────────────────────────────────────────────────── */}
@@ -402,6 +401,7 @@ function createStyles(theme: AppTheme) {
     list: {
       paddingHorizontal: 18,
       gap: 12,
+      paddingBottom: 120, // nav bar height + padding so last card is fully visible
     },
 
     // ── Component card ───────────────────────────────────────────────────────

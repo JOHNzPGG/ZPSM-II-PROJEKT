@@ -1,7 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { ReactNode, useMemo, useRef } from 'react';
+import React, { ReactNode, useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -11,9 +12,13 @@ import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
 export type NavKey = 'components' | 'threed' | 'home' | 'configs' | 'profile';
 
+// Całkowita wysokość navbara + padding — tyle musi zjechać żeby zniknąć
+const NAV_TOTAL_H = 110;
+
 type Props = {
   active: NavKey;
   onChange: (key: NavKey) => void;
+  hidden?: boolean; // true = zjedź w dół i zniknij
 };
 
 type NavItemProps = {
@@ -32,7 +37,6 @@ function NavItem({ id, label, active, onPress, icon, activeIcon, styles, theme }
 
   const pressIn = () =>
     Animated.spring(scale, { toValue: 0.88, friction: 6, tension: 120, useNativeDriver: true }).start();
-
   const pressOut = () =>
     Animated.spring(scale, { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }).start();
 
@@ -43,12 +47,7 @@ function NavItem({ id, label, active, onPress, icon, activeIcon, styles, theme }
       onPressOut={pressOut}
       style={styles.pressable}
     >
-      <Animated.View
-        style={[
-          active ? styles.activeItem : styles.inactiveItem,
-          { transform: [{ scale }] },
-        ]}
-      >
+      <Animated.View style={[active ? styles.activeItem : styles.inactiveItem, { transform: [{ scale }] }]}>
         {active ? activeIcon : icon}
         {!active && <Text style={styles.label}>{label}</Text>}
       </Animated.View>
@@ -56,16 +55,21 @@ function NavItem({ id, label, active, onPress, icon, activeIcon, styles, theme }
   );
 }
 
-export default function DummyBottomNav({ active, onChange }: Props) {
+export default function DummyBottomNav({ active, onChange, hidden = false }: Props) {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const slideY = useRef(new Animated.Value(0)).current;
 
-  const items: Array<{
-    id: NavKey;
-    label: string;
-    icon: ReactNode;
-    activeIcon: ReactNode;
-  }> = [
+  useEffect(() => {
+    Animated.timing(slideY, {
+      toValue: hidden ? NAV_TOTAL_H : 0,
+      duration: 320,
+      easing: hidden ? Easing.in(Easing.cubic) : Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [hidden]);
+
+  const items: Array<{ id: NavKey; label: string; icon: ReactNode; activeIcon: ReactNode }> = [
     {
       id: 'components',
       label: 'Części',
@@ -99,7 +103,7 @@ export default function DummyBottomNav({ active, onChange }: Props) {
   ];
 
   return (
-    <View style={styles.wrapper}>
+    <Animated.View style={[styles.wrapper, { transform: [{ translateY: slideY }] }]}>
       <View style={styles.nav}>
         {items.map((item) => (
           <NavItem
@@ -112,13 +116,12 @@ export default function DummyBottomNav({ active, onChange }: Props) {
           />
         ))}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 function createStyles(theme: AppTheme) {
   const isLight = theme.name === 'light';
-
   return StyleSheet.create({
     wrapper: {
       position: 'absolute',
@@ -138,18 +141,13 @@ function createStyles(theme: AppTheme) {
       paddingHorizontal: 8,
       borderWidth: 1,
       borderColor: theme.borderStrong,
-      // Neumorphic shadow
       shadowColor: theme.neuShadowDark,
       shadowOffset: { width: 4, height: 4 },
       shadowOpacity: isLight ? 0.18 : 0.6,
       shadowRadius: 14,
       elevation: 14,
     },
-    pressable: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    pressable: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     activeItem: {
       width: 52,
       height: 52,
@@ -165,21 +163,8 @@ function createStyles(theme: AppTheme) {
       shadowRadius: 10,
       elevation: 6,
     },
-    inactiveItem: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 3,
-      paddingVertical: 4,
-    },
-    label: {
-      color: theme.muted,
-      fontSize: 10,
-      fontWeight: '600',
-    },
-    text3d: {
-      fontSize: 14,
-      fontWeight: '900',
-      color: theme.muted,
-    },
+    inactiveItem: { alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 4 },
+    label: { color: theme.muted, fontSize: 10, fontWeight: '600' },
+    text3d: { fontSize: 14, fontWeight: '900', color: theme.muted },
   });
 }

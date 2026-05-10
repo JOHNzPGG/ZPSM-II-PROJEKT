@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DummyBottomNav, { NavKey } from '../components/DummyBottomNav';
 import ComponentsScreen from './components-screen';
 import ConfigsScreen from './configs-screen';
+import CompareScreen from './compare-screen';
 import {
   ACTIVE_USER_KEY,
   LEGACY_USERNAME_KEY,
@@ -52,6 +53,7 @@ export default function HomeScreen() {
   const [username, setUsername] = useState('użytkowniku');
   const [activeView, setActiveView] = useState<NavKey>('home');
   const [configsCount, setConfigsCount] = useState(0);
+  const [navHidden, setNavHidden] = useState(false);
 
   const router = useRouter();
   const { theme, themeName, accentName, toggleTheme, setAccent } = useAppTheme();
@@ -244,19 +246,29 @@ export default function HomeScreen() {
     );
   }
 
+  // Compare tab — full screen
+  if (activeView === 'threed') {
+    return (
+      <View style={styles.screen}>
+        <CompareScreen />
+        <DummyBottomNav active={activeView} onChange={setActiveView} />
+      </View>
+    );
+  }
+
   // Configs tab — full screen with own scroll
   if (activeView === 'configs') {
     return (
       <View style={styles.screen}>
-        <ConfigsScreen />
-        <DummyBottomNav active={activeView} onChange={setActiveView} />
+        <ConfigsScreen onConfiguratorOpen={setNavHidden} />
+        <DummyBottomNav active={activeView} onChange={setActiveView} hidden={navHidden} />
       </View>
     );
   }
 
   const renderContent = () => {
     if (activeView === 'profile') return renderProfile();
-    if (activeView === 'threed') return renderPlaceholder('Widok 3D', 'Wizualizacja zestawu lub ekran porównawczy komponentów.', 'cube-outline');
+    if (activeView === 'threed') return null; // handled below as full-screen
     return renderHome();
   };
 
