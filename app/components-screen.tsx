@@ -357,6 +357,7 @@ function createStyles(theme: AppTheme) {
       paddingHorizontal: 18,
       paddingBottom: 14,
       gap: 8,
+      height: 50,
     },
     chip: {
       flexDirection: 'row',
