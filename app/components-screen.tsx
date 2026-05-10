@@ -30,20 +30,38 @@ const FILTERS: { key: FilterKey; label: string; icon: string; lib: 'ion' | 'mci'
   { key: 'GPU',         label: 'GPU',       icon: 'expansion-card',      lib: 'mci' },
   { key: 'RAM',         label: 'RAM',       icon: 'memory',              lib: 'mci' },
   { key: 'Motherboard', label: 'Płyta gł.', icon: 'developer-board',     lib: 'mci' },
+  { key: 'Cooler',      label: 'Chłodzenie',icon: 'fan',                 lib: 'mci' },
+  { key: 'PSU',         label: 'Zasilacz',  icon: 'power-plug',          lib: 'mci' },
+  { key: 'Case',        label: 'Obudowa',   icon: 'desktop-tower',       lib: 'mci' },
+  { key: 'Storage',     label: 'Dysk',      icon: 'harddisk',            lib: 'mci' },
 ];
 
 // Brand accent colors (consistent chip colors)
 const BRAND_COLORS: Record<string, string> = {
-  AMD:     '#ED1C24',
-  Intel:   '#0071C5',
-  NVIDIA:  '#76B900',
-  Corsair: '#FFD100',
-  'G.Skill': '#E8720C',
-  Kingston: '#CE1126',
-  ASRock:  '#EF3340',
-  Gigabyte:'#E0332E',
-  MSI:     '#FF0000',
-  'ASUS ROG': '#FF0029',
+  AMD:              '#ED1C24',
+  Intel:            '#0071C5',
+  NVIDIA:           '#76B900',
+  Corsair:          '#FFD100',
+  'G.Skill':        '#E8720C',
+  Kingston:         '#CE1126',
+  ASRock:           '#EF3340',
+  Gigabyte:         '#E0332E',
+  MSI:              '#FF0000',
+  'ASUS ROG':       '#FF0029',
+  ASUS:             '#00A3E0',
+  Noctua:           '#B5651D',
+  'be quiet!':      '#1C1C1C',
+  DeepCool:         '#0096C7',
+  NZXT:             '#F25022',
+  'Cooler Master':  '#CC0000',
+  Seasonic:         '#F5A623',
+  WD:               '#E31837',
+  Samsung:          '#1428A0',
+  Crucial:          '#007DB8',
+  Seagate:          '#00C853',
+  'Lian Li':        '#A0A0A0',
+  'Fractal Design': '#5C7A8C',
+  TeamGroup:        '#E53935',
 };
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -157,7 +175,7 @@ function FilterChip({
         }
         <Text style={[styles.chipText, active && styles.chipTextActive]}>{filter.label}</Text>
         <View style={[styles.chipBadge, active && styles.chipBadgeActive]}>
-          <Text style={[styles.chipBadgeText, active && { color: theme.primary2 }]}>{count}</Text>
+          <Text style={[styles.chipBadgeText, active && { color: '#FFFFFF', fontWeight: '800' }]}>{count}</Text>
         </View>
       </Animated.View>
     </Pressable>
@@ -357,7 +375,7 @@ function createStyles(theme: AppTheme) {
       paddingHorizontal: 18,
       paddingBottom: 14,
       gap: 8,
-      height: 50,
+      height: 50
     },
     chip: {
       flexDirection: 'row',
@@ -381,7 +399,8 @@ function createStyles(theme: AppTheme) {
       fontWeight: '700',
     },
     chipTextActive: {
-      color: '#fff',
+      color: '#FFFFFF',
+      fontWeight: '800',
     },
     chipBadge: {
       backgroundColor: theme.surfaceSunken,
@@ -390,7 +409,7 @@ function createStyles(theme: AppTheme) {
       paddingVertical: 2,
     },
     chipBadgeActive: {
-      backgroundColor: 'rgba(255,255,255,0.18)',
+      backgroundColor: 'rgba(255,255,255,0.22)',
     },
     chipBadgeText: {
       color: theme.muted,
@@ -451,7 +470,7 @@ function createStyles(theme: AppTheme) {
       alignItems: 'flex-end',
     },
     price: {
-      color: theme.primary2,
+      color: theme.text,
       fontSize: 16,
       fontWeight: '900',
     },

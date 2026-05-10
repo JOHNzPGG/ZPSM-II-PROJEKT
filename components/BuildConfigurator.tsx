@@ -50,14 +50,14 @@ type SlotDef = {
 const SLOT_DEFS: SlotDef[] = [
   // left column (top→bottom)
   { key: 'cpu',         label: 'CPU',       type: 'CPU',         side: 'left',  pcX: 0,   pcY: 52  },
-  { key: 'cooler',      label: 'Chłodzenie',type: null,          side: 'left',  pcX: 0,   pcY: 105 },
+  { key: 'cooler',      label: 'Chłodzenie',type: 'Cooler',      side: 'left',  pcX: 0,   pcY: 105 },
   { key: 'gpu',         label: 'GPU',       type: 'GPU',         side: 'left',  pcX: 0,   pcY: 158 },
-  { key: 'psu',         label: 'PSU',       type: null,          side: 'left',  pcX: 0,   pcY: 190 },
+  { key: 'psu',         label: 'PSU',       type: 'PSU',         side: 'left',  pcX: 0,   pcY: 190 },
   // right column (top→bottom)
   { key: 'motherboard', label: 'Płyta gł.', type: 'Motherboard', side: 'right', pcX: 102, pcY: 52  },
   { key: 'ram',         label: 'RAM',       type: 'RAM',         side: 'right', pcX: 102, pcY: 105 },
-  { key: 'ssd',         label: 'SSD',       type: null,          side: 'right', pcX: 102, pcY: 158 },
-  { key: 'case',        label: 'Obudowa',   type: null,          side: 'right', pcX: 102, pcY: 190 },
+  { key: 'ssd',         label: 'Dysk',      type: 'Storage',     side: 'right', pcX: 102, pcY: 158 },
+  { key: 'case',        label: 'Obudowa',   type: 'Case',        side: 'right', pcX: 102, pcY: 190 },
 ];
 
 // Brand colors
@@ -65,6 +65,10 @@ const BRAND_COLOR: Record<string, string> = {
   AMD: '#ED1C24', Intel: '#0071C5', NVIDIA: '#76B900',
   Corsair: '#FFD100', 'G.Skill': '#E8720C', Kingston: '#CE1126',
   ASRock: '#EF3340', Gigabyte: '#E0332E', MSI: '#FF0000', 'ASUS ROG': '#FF0029',
+  ASUS: '#00A3E0', Noctua: '#B5651D', 'be quiet!': '#555', DeepCool: '#0096C7',
+  NZXT: '#F25022', 'Cooler Master': '#CC0000', Seasonic: '#F5A623',
+  WD: '#E31837', Samsung: '#1428A0', Crucial: '#007DB8', Seagate: '#00C853',
+  'Lian Li': '#A0A0A0', 'Fractal Design': '#5C7A8C', TeamGroup: '#E53935',
 };
 
 // ─── Props ───────────────────────────────────────────────────────────────────

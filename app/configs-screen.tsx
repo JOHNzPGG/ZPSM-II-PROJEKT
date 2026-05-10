@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Animated,
+  BackHandler,
   Easing,
   Modal,
   Pressable,
@@ -170,6 +171,42 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
     return Object.values(activeBuild.slots).reduce((sum, c) => sum + (c?.price ?? 0), 0);
   }, [activeBuild]);
 
+  // ── Back gesture handler (Android back + iOS swipe) ──────────────────────
+
+  const goBackWithConfirm = useCallback(() => {
+    const filled = activeBuild ? Object.keys(activeBuild.slots).length : 0;
+    if (filled === 0) {
+      // Nothing selected — just go back silently
+      setActiveBuild(null);
+      onConfiguratorOpen?.(false);
+      return;
+    }
+    Alert.alert(
+      'Wróć do listy',
+      'Zmiany są zapisywane automatycznie. Czy chcesz wrócić do listy zestawów?',
+      [
+        { text: 'Zostań', style: 'cancel' },
+        {
+          text: 'Wróć',
+          onPress: () => {
+            setActiveBuild(null);
+            onConfiguratorOpen?.(false);
+          },
+        },
+      ],
+    );
+  }, [activeBuild, onConfiguratorOpen]);
+
+  // Android hardware back button
+  useEffect(() => {
+    if (!activeBuild) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      goBackWithConfirm();
+      return true; // prevent default back action
+    });
+    return () => sub.remove();
+  }, [activeBuild, goBackWithConfirm]);
+
   // ── Active build view ────────────────────────────────────────────────────
 
   if (activeBuild) {
@@ -177,7 +214,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
       <View style={styles.screen}>
         {/* Back header */}
         <View style={styles.configHeader}>
-          <Pressable style={styles.backBtn} onPress={() => { setActiveBuild(null); onConfiguratorOpen?.(false); }}>
+          <Pressable style={styles.backBtn} onPress={goBackWithConfirm}>
             <Ionicons name="arrow-back" size={20} color={theme.text} />
           </Pressable>
           <View style={{ flex: 1 }}>

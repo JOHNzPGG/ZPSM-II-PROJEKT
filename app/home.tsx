@@ -40,13 +40,14 @@ type CardDef = {
   icon: string;
   iconLib: 'ion' | 'mci';
   accent: boolean;
+  navTarget: NavKey | null; // null = dummy (Ulepszenia)
 };
 
 const CARDS: CardDef[] = [
-  { title: 'Komponenty', desc: 'CPU, GPU, RAM, dyski', icon: 'chip', iconLib: 'mci', accent: false },
-  { title: 'Konfiguracje', desc: 'Twoje zestawy', icon: 'monitor-dashboard', iconLib: 'mci', accent: true },
-  { title: 'Kompatybilność', desc: 'Sprawdź zgodność', icon: 'shield-checkmark-outline', iconLib: 'ion', accent: false },
-  { title: 'Ulepszenia', desc: 'Propozycje modernizacji', icon: 'rocket-outline', iconLib: 'ion', accent: false },
+  { title: 'Komponenty',   desc: 'CPU, GPU, RAM, dyski',     icon: 'chip',                  iconLib: 'mci', accent: false, navTarget: 'components' },
+  { title: 'Konfiguracje', desc: 'Twoje zestawy',            icon: 'monitor-dashboard',     iconLib: 'mci', accent: true,  navTarget: 'configs'    },
+  { title: 'Porównanie',   desc: 'Zestawiaj komponenty',     icon: 'git-compare-outline',   iconLib: 'ion', accent: false, navTarget: 'threed'     },
+  { title: 'Ulepszenia',   desc: 'Propozycje modernizacji',  icon: 'rocket-outline',        iconLib: 'ion', accent: false, navTarget: null         },
 ];
 
 export default function HomeScreen() {
@@ -139,11 +140,12 @@ export default function HomeScreen() {
 
       <View style={styles.grid}>
         {CARDS.map((card, i) => (
-          <ActionCard key={i} card={card} index={i} theme={theme} styles={styles} />
+          <ActionCard key={i} card={card} index={i} theme={theme} styles={styles} onNavigate={setActiveView} />
         ))}
       </View>
 
       {/* Bottom promo */}
+      <Pressable onPress={() => setActiveView('configs')}>
       <View style={styles.promoCard}>
         <LinearGradient
           colors={[theme.primary2, theme.primary]}
@@ -158,6 +160,7 @@ export default function HomeScreen() {
           <Ionicons name="arrow-forward-circle" size={36} color="rgba(255,255,255,0.8)" />
         </LinearGradient>
       </View>
+      </Pressable>
     </>
   );
 
@@ -304,18 +307,31 @@ function StatBadge({
 }
 
 function ActionCard({
-  card, index, theme, styles,
+  card, index, theme, styles, onNavigate,
 }: {
   card: CardDef; index: number; theme: AppTheme; styles: any;
+  onNavigate: (key: NavKey) => void;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const isDummy = card.navTarget === null;
 
-  const pressIn = () => Animated.spring(scale, { toValue: 0.96, friction: 6, useNativeDriver: true }).start();
+  const pressIn = () => !isDummy && Animated.spring(scale, { toValue: 0.96, friction: 6, useNativeDriver: true }).start();
   const pressOut = () => Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: true }).start();
 
   return (
-    <Pressable onPressIn={pressIn} onPressOut={pressOut} style={styles.cardPressable}>
-      <Animated.View style={[styles.actionCard, { transform: [{ scale }] }, card.accent && { borderColor: theme.primary2 }]}>
+    <Pressable
+      onPressIn={pressIn}
+      onPressOut={pressOut}
+      onPress={() => card.navTarget && onNavigate(card.navTarget)}
+      style={styles.cardPressable}
+      disabled={isDummy}
+    >
+      <Animated.View style={[
+        styles.actionCard,
+        { transform: [{ scale }] },
+        card.accent && { borderColor: theme.primary2 },
+        isDummy && { opacity: 0.45 },
+      ]}>
         <View style={[styles.cardIconWrap, card.accent && { backgroundColor: theme.primary2 }]}>
           {card.iconLib === 'mci'
             ? <MaterialCommunityIcons name={card.icon as any} size={22} color={card.accent ? '#fff' : theme.primary2} />
@@ -324,6 +340,11 @@ function ActionCard({
         </View>
         <Text style={styles.cardTitle}>{card.title}</Text>
         <Text style={styles.cardDesc}>{card.desc}</Text>
+        {isDummy && (
+          <View style={styles.comingSoonBadge}>
+            <Text style={styles.comingSoonText}>Wkrótce</Text>
+          </View>
+        )}
       </Animated.View>
     </Pressable>
   );
@@ -485,6 +506,22 @@ function createStyles(theme: AppTheme) {
       color: theme.muted,
       fontSize: 12,
       lineHeight: 17,
+    },
+    comingSoonBadge: {
+      alignSelf: 'flex-start',
+      marginTop: 8,
+      backgroundColor: theme.surfaceSunken,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+    },
+    comingSoonText: {
+      color: theme.muted,
+      fontSize: 9,
+      fontWeight: '700',
+      letterSpacing: 0.5,
     },
 
     // ── Promo card ───────────────────────────────────────────────────────────
