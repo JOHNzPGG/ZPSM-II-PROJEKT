@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { ACTIVE_USER_KEY, LEGACY_USERNAME_KEY } from '../constants/storageKeys';
 import { AppThemeProvider } from '../contexts/AppThemeContext';
 
+// Zarządzanie sesją użytkownika przy pomocy RootLayout
+
 export default function RootLayout() {
   const [username, setUsername] = useState<string | undefined>(undefined);
 
@@ -18,9 +20,6 @@ export default function RootLayout() {
     load();
   }, []);
 
-  // Re-read username when it might change — expo-router fires this on every
-  // navigation so we subscribe to storage changes via a simple interval fallback.
-  // A cleaner approach uses a context/event bus, but this is sufficient for now.
   useEffect(() => {
     const id = setInterval(async () => {
       const user =
@@ -29,7 +28,7 @@ export default function RootLayout() {
         undefined;
       setUsername(prev => {
         const next = user ?? undefined;
-        return prev !== next ? next : prev; // only update if changed
+        return prev !== next ? next : prev;
       });
     }, 1000);
     return () => clearInterval(id);

@@ -1,4 +1,3 @@
-// app/configs-screen.tsx
 // Ekran zestawów — lista buildów (max 3) + konfigurator
 
 import { Ionicons } from '@expo/vector-icons';
@@ -26,7 +25,6 @@ import { Component } from '../constants/mockComponents';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 import BuildConfigurator, { BuildSlots, SlotKey } from '../components/BuildConfigurator';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type Build = {
   id: string;
@@ -37,7 +35,6 @@ export type Build = {
 
 const MAX_BUILDS = 3;
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOpen?: (hidden: boolean) => void }) {
   const { theme } = useAppTheme();
@@ -171,12 +168,10 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
     return Object.values(activeBuild.slots).reduce((sum, c) => sum + (c?.price ?? 0), 0);
   }, [activeBuild]);
 
-  // ── Back gesture handler (Android back + iOS swipe) ──────────────────────
 
   const goBackWithConfirm = useCallback(() => {
     const filled = activeBuild ? Object.keys(activeBuild.slots).length : 0;
     if (filled === 0) {
-      // Nothing selected — just go back silently
       setActiveBuild(null);
       onConfiguratorOpen?.(false);
       return;
@@ -197,17 +192,15 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
     );
   }, [activeBuild, onConfiguratorOpen]);
 
-  // Android hardware back button
   useEffect(() => {
     if (!activeBuild) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       goBackWithConfirm();
-      return true; // prevent default back action
+      return true;
     });
     return () => sub.remove();
   }, [activeBuild, goBackWithConfirm]);
 
-  // ── Active build view ────────────────────────────────────────────────────
 
   if (activeBuild) {
     return (
@@ -238,7 +231,6 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
     );
   }
 
-  // ── Build list view ──────────────────────────────────────────────────────
 
   return (
     <View style={styles.screen}>
@@ -275,7 +267,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
           />
         ))}
 
-        {/* New build button */}
+        {/* Przycisk do nowego zestawu */}
         {builds.length < MAX_BUILDS && (
           <Pressable
             style={({ pressed }) => [styles.newBtn, pressed && { opacity: 0.8 }]}
@@ -289,7 +281,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
 
-      {/* New build name modal */}
+      {/* Modal do nazwy zestawu */}
       {showNewModal && (
         <NewBuildModal
           theme={theme}
@@ -301,7 +293,6 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
   );
 }
 
-// ─── Build card ───────────────────────────────────────────────────────────────
 
 function BuildCard({
   build, theme, styles, onOpen, onDelete,
@@ -336,13 +327,13 @@ function BuildCard({
           </Pressable>
         </View>
 
-        {/* Progress bar */}
+        {/* Pasek postępu */}
         <View style={styles.progressBg}>
           <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
         <Text style={styles.progressLabel}>{filledCount} / 8 komponentów</Text>
 
-        {/* Filled slots preview */}
+        {/* Preview wrzuconych komponentów */}
         {filledCount > 0 && (
           <View style={styles.slotPreview}>
             {Object.entries(build.slots).slice(0, 4).map(([key, comp]) => (
@@ -374,7 +365,6 @@ function BuildCard({
   );
 }
 
-// ─── New build modal ──────────────────────────────────────────────────────────
 
 function NewBuildModal({
   theme, onConfirm, onClose,
@@ -453,7 +443,6 @@ function NewBuildModal({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 function createStyles(theme: AppTheme) {
   const isLight = theme.name === 'light';

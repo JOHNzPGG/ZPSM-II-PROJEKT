@@ -24,7 +24,7 @@ import {
 } from '../constants/storageKeys';
 import { AccentName, AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
-// ─── Accent picker data ──────────────────────────────────────────────────────
+// ─── Picker do motywu ────────────────────────────────────────────────────────
 const ACCENTS: { key: AccentName; color: string; label: string }[] = [
   { key: 'red',    color: '#E83040', label: 'Czerwony' },
   { key: 'blue',   color: '#3584E4', label: 'Niebieski' },
@@ -33,14 +33,14 @@ const ACCENTS: { key: AccentName; color: string; label: string }[] = [
   { key: 'orange', color: '#E8720C', label: 'Pomarańczowy' },
 ];
 
-// ─── Quick action cards ──────────────────────────────────────────────────────
+// ─── Szybkie akcje ──────────────────────────────────────────────────────────
 type CardDef = {
   title: string;
   desc: string;
   icon: string;
   iconLib: 'ion' | 'mci';
   accent: boolean;
-  navTarget: NavKey | null; // null = dummy (Ulepszenia)
+  navTarget: NavKey | null;
 };
 
 const CARDS: CardDef[] = [
@@ -83,7 +83,6 @@ export default function HomeScreen() {
     ]).start();
   }, []);
 
-  // Re-animate on tab change
   useEffect(() => {
     fadeAnim.setValue(0);
     slideAnim.setValue(16);
@@ -111,11 +110,10 @@ export default function HomeScreen() {
     );
   };
 
-  // ─── Render helpers ─────────────────────────────────────────────────────────
+  // ─── Helpery do renderowania ─────────────────────────────────────────────────────────
 
   const renderHome = () => (
     <>
-      {/* Hero */}
       <View style={styles.hero}>
         <View style={styles.heroTop}>
           <View>
@@ -127,7 +125,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Stats row */}
         <View style={styles.statsRow}>
           <StatBadge label="Zestawy" value={`${configsCount}/3`} theme={theme} styles={styles} />
           <StatBadge label="Status" value="Aktywny" theme={theme} styles={styles} accent />
@@ -135,7 +132,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Section */}
       <Text style={styles.sectionLabel}>SZYBKIE AKCJE</Text>
 
       <View style={styles.grid}>
@@ -144,7 +140,6 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Bottom promo */}
       <Pressable onPress={() => setActiveView('configs')}>
       <View style={styles.promoCard}>
         <LinearGradient
@@ -166,7 +161,6 @@ export default function HomeScreen() {
 
   const renderProfile = () => (
     <>
-      {/* Profile header */}
       <View style={styles.profileHero}>
         <View style={styles.profileAvatarWrap}>
           <LinearGradient colors={[theme.primary2, theme.primary]} style={styles.profileAvatar}>
@@ -177,7 +171,6 @@ export default function HomeScreen() {
         <Text style={styles.profileSub}>Lokalny profil użytkownika</Text>
       </View>
 
-      {/* Info card */}
       <View style={styles.infoCard}>
         <InfoRow label="Pseudonim" value={username} theme={theme} styles={styles} />
         <View style={styles.divider} />
@@ -186,7 +179,6 @@ export default function HomeScreen() {
         <InfoRow label="Motyw" value={themeName === 'dark' ? 'Ciemny' : 'Jasny'} theme={theme} styles={styles} />
       </View>
 
-      {/* Accent picker */}
       <Text style={styles.sectionLabel}>KOLOR AKCENTU</Text>
       <View style={styles.accentRow}>
         {ACCENTS.map((a) => (
@@ -205,7 +197,6 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      {/* Action buttons */}
       <Pressable
         style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.8 }]}
         onPress={toggleTheme}
@@ -239,7 +230,7 @@ export default function HomeScreen() {
     </View>
   );
 
-  // Components tab renders its own full-screen scroll — bypass the shared ScrollView
+  // Zakładka z podzespołami renderuje swojego własnego scrolla
   if (activeView === 'components') {
     return (
       <View style={styles.screen}>
@@ -249,7 +240,7 @@ export default function HomeScreen() {
     );
   }
 
-  // Compare tab — full screen
+  // Porównywarka - full screen 
   if (activeView === 'threed') {
     return (
       <View style={styles.screen}>
@@ -259,7 +250,7 @@ export default function HomeScreen() {
     );
   }
 
-  // Configs tab — full screen with own scroll
+  // Configi - pełny ekran z własnym scrollem 
   if (activeView === 'configs') {
     return (
       <View style={styles.screen}>
@@ -271,7 +262,7 @@ export default function HomeScreen() {
 
   const renderContent = () => {
     if (activeView === 'profile') return renderProfile();
-    if (activeView === 'threed') return null; // handled below as full-screen
+    if (activeView === 'threed') return null;
     return renderHome();
   };
 
@@ -291,7 +282,6 @@ export default function HomeScreen() {
   );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function StatBadge({
   label, value, theme, styles, accent = false,
@@ -382,7 +372,6 @@ function createStyles(theme: AppTheme) {
       paddingBottom: 120,
     },
 
-    // ── Hero ────────────────────────────────────────────────────────────────
     hero: {
       backgroundColor: theme.card,
       borderRadius: 28,
@@ -457,7 +446,6 @@ function createStyles(theme: AppTheme) {
       textTransform: 'uppercase',
     },
 
-    // ── Section label ────────────────────────────────────────────────────────
     sectionLabel: {
       color: theme.muted,
       fontSize: 11,
@@ -466,7 +454,6 @@ function createStyles(theme: AppTheme) {
       marginBottom: 14,
     },
 
-    // ── Action cards grid ────────────────────────────────────────────────────
     grid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -524,7 +511,6 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 0.5,
     },
 
-    // ── Promo card ───────────────────────────────────────────────────────────
     promoCard: {
       borderRadius: 22,
       overflow: 'hidden',
@@ -556,7 +542,6 @@ function createStyles(theme: AppTheme) {
       fontSize: 13,
     },
 
-    // ── Profile ──────────────────────────────────────────────────────────────
     profileHero: {
       alignItems: 'center',
       paddingVertical: 28,
@@ -690,7 +675,6 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 1,
     },
 
-    // ── Placeholder ──────────────────────────────────────────────────────────
     placeholder: {
       backgroundColor: theme.card,
       borderRadius: 28,

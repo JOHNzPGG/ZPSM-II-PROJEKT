@@ -1,14 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
-// ─── Storage key helpers ──────────────────────────────────────────────────────
-// Per-user keys so each user has their own theme & accent preference.
-// Falls back to a global key when username is not yet known (e.g. setup screen).
+// Helpery kluczowe do zarządzania ustawieniami użytkownika
 
 const themeKey  = (u?: string) => u ? `pcua_theme_${u}`  : 'pcua_theme';
 const accentKey = (u?: string) => u ? `pcua_accent_${u}` : 'pcua_accent';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ThemeName  = 'dark' | 'light';
 export type AccentName = 'red' | 'blue' | 'green' | 'purple' | 'orange';
@@ -42,7 +39,6 @@ export type AppTheme = {
   neuShadowLight: string;
 };
 
-// ─── Accent palettes ──────────────────────────────────────────────────────────
 
 const accents: Record<AccentName, {
   primary: string; primary2: string; primaryGlow: string; nav: string; nav2: string;
@@ -54,7 +50,6 @@ const accents: Record<AccentName, {
   orange: { primary: '#C45A00', primary2: '#E8720C', primaryGlow: 'rgba(232,114,12,0.35)', nav: '#8B3D00', nav2: '#C45A00' },
 };
 
-// ─── Theme builders ───────────────────────────────────────────────────────────
 
 function buildDarkTheme(accent: AccentName): AppTheme {
   const a = accents[accent];
@@ -92,7 +87,6 @@ function buildLightTheme(accent: AccentName): AppTheme {
   };
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
 
 type ThemeContextValue = {
   theme: AppTheme;
@@ -104,18 +98,17 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
 
 type ProviderProps = {
   children: ReactNode;
-  username?: string; // passed from _layout — drives per-user storage keys
+  username?: string;
 };
 
 export function AppThemeProvider({ children, username }: ProviderProps) {
   const [themeName,  setThemeName]  = useState<ThemeName>('dark');
   const [accentName, setAccentName] = useState<AccentName>('red');
 
-  // Reload preferences whenever username changes (login / logout / switch user)
+  // Jak użytkownik został przeładowany to motyw apki się resetuje 
   useEffect(() => {
     const load = async () => {
       const [savedTheme, savedAccent] = await Promise.all([
@@ -126,7 +119,7 @@ export function AppThemeProvider({ children, username }: ProviderProps) {
       setAccentName((savedAccent && savedAccent in accents) ? savedAccent as AccentName : 'red');
     };
     load();
-  }, [username]); // ← re-runs when user logs in/out
+  }, [username]);
 
   const toggleTheme = async () => {
     const next: ThemeName = themeName === 'dark' ? 'light' : 'dark';
@@ -152,7 +145,7 @@ export function AppThemeProvider({ children, username }: ProviderProps) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
+// Hak do zarządzania motywem apki na wielu widokach
 
 export function useAppTheme() {
   const ctx = useContext(ThemeContext);

@@ -1,4 +1,3 @@
-// app/components-screen.tsx
 // Ekran komponentów z filtrowaniem po kategorii i ekranem szczegółów
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,7 +19,7 @@ import {
 } from '../constants/mockComponents';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
-// ─── Category filter config ──────────────────────────────────────────────────
+// ─── Config do kategorii filtra ──────────────────────────────────────────────────
 
 type FilterKey = 'All' | ComponentType;
 
@@ -36,7 +35,7 @@ const FILTERS: { key: FilterKey; label: string; icon: string; lib: 'ion' | 'mci'
   { key: 'Storage',     label: 'Dysk',      icon: 'harddisk',            lib: 'mci' },
 ];
 
-// Brand accent colors (consistent chip colors)
+// Kolory akcentów do producentów
 const BRAND_COLORS: Record<string, string> = {
   AMD:              '#ED1C24',
   Intel:            '#0071C5',
@@ -64,7 +63,6 @@ const BRAND_COLORS: Record<string, string> = {
   TeamGroup:        '#E53935',
 };
 
-// ─── Main component ──────────────────────────────────────────────────────────
 
 export default function ComponentsScreen() {
   const { theme } = useAppTheme();
@@ -99,7 +97,7 @@ export default function ComponentsScreen() {
         </Text>
       </View>
 
-      {/* ── Filter chips ────────────────────────────────────────────────── */}
+      {/* ── Filtr ────────────────────────────────────────────────── */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -118,7 +116,7 @@ export default function ComponentsScreen() {
         ))}
       </ScrollView>
 
-      {/* ── Component list ──────────────────────────────────────────────── */}
+      {/* ── Lista komponentów ──────────────────────────────────────────────── */}
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -135,7 +133,7 @@ export default function ComponentsScreen() {
         ))}
       </ScrollView>
 
-      {/* ── Detail modal ────────────────────────────────────────────────── */}
+      {/* ── Modal ze szczegółami ────────────────────────────────────────────────── */}
       {selectedComponent && (
         <DetailModal
           component={selectedComponent}
@@ -148,7 +146,6 @@ export default function ComponentsScreen() {
   );
 }
 
-// ─── Filter chip ─────────────────────────────────────────────────────────────
 
 function FilterChip({
   filter, active, count, onPress, theme, styles,
@@ -182,7 +179,6 @@ function FilterChip({
   );
 }
 
-// ─── Component card ──────────────────────────────────────────────────────────
 
 function ComponentCard({
   component, index, theme, styles, onPress,
@@ -196,7 +192,7 @@ function ComponentCard({
   const scale = useRef(new Animated.Value(1)).current;
   const brandColor = BRAND_COLORS[component.brand] ?? theme.primary2;
 
-  // First 3 spec entries for preview
+  // Pierwsze 3 szczegóły do preview
   const previewSpecs = Object.entries(component.specs).slice(0, 3);
 
   return (
@@ -206,10 +202,8 @@ function ComponentCard({
       onPress={onPress}
     >
       <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
-        {/* Top row */}
         <View style={styles.cardTop}>
           <View style={styles.cardLeft}>
-            {/* Type badge */}
             <View style={[styles.typeBadge, { borderColor: brandColor }]}>
               <Text style={[styles.typeBadgeText, { color: brandColor }]}>{component.type}</Text>
             </View>
@@ -218,14 +212,14 @@ function ComponentCard({
             <Text style={styles.cardBrand}>{component.brand} · {component.generation}</Text>
           </View>
 
-          {/* Price */}
+          {/* Cena */}
           <View style={styles.priceWrap}>
             <Text style={styles.price}>{component.price.toLocaleString('pl-PL')} zł</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.muted} style={{ marginTop: 2 }} />
           </View>
         </View>
 
-        {/* Spec pills */}
+        {/* Szczegóły komponentu */}
         <View style={styles.specRow}>
           {previewSpecs.map(([key, val]) => (
             <View key={key} style={styles.specPill}>
@@ -239,7 +233,6 @@ function ComponentCard({
   );
 }
 
-// ─── Detail modal ─────────────────────────────────────────────────────────────
 
 function DetailModal({
   component, theme, styles, onClose,
@@ -269,20 +262,19 @@ function DetailModal({
 
   return (
     <Modal transparent animationType="none" onRequestClose={handleClose}>
-      {/* Backdrop */}
       <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
         <Pressable style={{ flex: 1 }} onPress={handleClose} />
       </Animated.View>
 
-      {/* Sheet */}
+
       <Animated.View
         style={[styles.sheet, { transform: [{ translateY: slideAnim }], opacity: fadeAnim }]}
       >
-        {/* Handle */}
+
         <View style={styles.sheetHandle} />
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header */}
+
           <View style={styles.sheetHeader}>
             <View style={{ flex: 1 }}>
               <View style={[styles.typeBadge, { borderColor: brandColor, marginBottom: 8 }]}>
@@ -296,7 +288,6 @@ function DetailModal({
             </Pressable>
           </View>
 
-          {/* Price banner */}
           <View style={[styles.priceBanner, { borderColor: brandColor }]}>
             <Text style={styles.priceBannerLabel}>Cena orientacyjna</Text>
             <Text style={[styles.priceBannerValue, { color: brandColor }]}>
@@ -304,10 +295,8 @@ function DetailModal({
             </Text>
           </View>
 
-          {/* Description */}
           <Text style={styles.sheetDesc}>{component.description}</Text>
 
-          {/* Specs */}
           <Text style={styles.sheetSectionLabel}>SPECYFIKACJA</Text>
           <View style={styles.specsCard}>
             {Object.entries(component.specs).map(([key, val], i, arr) => (
@@ -321,7 +310,6 @@ function DetailModal({
             ))}
           </View>
 
-          {/* Action button */}
           <Pressable style={[styles.addBtn, { backgroundColor: theme.primary2 }]}>
             <Ionicons name="add-circle-outline" size={20} color="#fff" />
             <Text style={styles.addBtnText}>DODAJ DO ZESTAWU</Text>
@@ -334,7 +322,6 @@ function DetailModal({
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 function createStyles(theme: AppTheme) {
   const isLight = theme.name === 'light';
@@ -370,7 +357,7 @@ function createStyles(theme: AppTheme) {
       marginTop: 2,
     },
 
-    // ── Filter chips ─────────────────────────────────────────────────────────
+    // ── Filtr ─────────────────────────────────────────────────────────
     filterRow: {
       paddingHorizontal: 18,
       paddingBottom: 14,
@@ -417,14 +404,12 @@ function createStyles(theme: AppTheme) {
       fontWeight: '800',
     },
 
-    // ── List ─────────────────────────────────────────────────────────────────
     list: {
       paddingHorizontal: 18,
       gap: 12,
-      paddingBottom: 120, // nav bar height + padding so last card is fully visible
+      paddingBottom: 120,
     },
 
-    // ── Component card ───────────────────────────────────────────────────────
     card: {
       backgroundColor: theme.card,
       borderRadius: 22,
@@ -499,7 +484,6 @@ function createStyles(theme: AppTheme) {
       fontWeight: '800',
     },
 
-    // ── Modal / sheet ────────────────────────────────────────────────────────
     backdrop: {
       ...StyleSheet.absoluteFillObject,
       backgroundColor: 'rgba(0,0,0,0.65)',

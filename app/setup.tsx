@@ -22,6 +22,7 @@ import {
 } from '../constants/storageKeys';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
+// Setup do zarządzania nickiem użytkownika w lokalnej bazie 
 export default function SetupScreen() {
   const [name, setName] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -98,7 +99,6 @@ export default function SetupScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Background dots pattern */}
       <View style={styles.bgPattern}>
         {Array.from({ length: 48 }).map((_, i) => (
           <View key={i} style={styles.bgDot} />
@@ -115,7 +115,6 @@ export default function SetupScreen() {
             { opacity: fadeAnim, transform: [{ translateY: translateAnim }] },
           ]}
         >
-          {/* Logo */}
           <Animated.View style={[styles.logoWrap, { transform: [{ scale: logoScale }] }]}>
             <Animated.View style={[styles.glowRing, { opacity: glowOpacity }]} />
             <View style={styles.logoOuter}>
@@ -129,13 +128,11 @@ export default function SetupScreen() {
             </View>
           </Animated.View>
 
-          {/* Title */}
           <Text style={styles.title}>PC Upgrade Advisor</Text>
           <Text style={styles.subtitle}>
             Ustaw pseudonim — aplikacja zapisze Twoje{'\n'}konfiguracje lokalnie pod tą nazwą.
           </Text>
 
-          {/* Card */}
           <View style={styles.card}>
             <Text style={styles.inputLabel}>Pseudonim</Text>
             <View style={[styles.inputWrap, isFocused && { borderColor: theme.primary2 }]}>
@@ -233,7 +230,6 @@ function createStyles(theme: AppTheme) {
       height: 120,
       borderRadius: 60,
       backgroundColor: theme.primary2,
-      // Glow effect via shadow
       shadowColor: theme.primary2,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 1,
