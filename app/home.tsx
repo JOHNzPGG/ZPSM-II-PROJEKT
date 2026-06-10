@@ -17,6 +17,7 @@ import DummyBottomNav, { NavKey } from '../components/DummyBottomNav';
 import ComponentsScreen from './components-screen';
 import ConfigsScreen from './configs-screen';
 import CompareScreen from './compare-screen';
+import UpgradesScreen from './upgrades-screen';
 import {
   ACTIVE_USER_KEY,
   LEGACY_USERNAME_KEY,
@@ -24,7 +25,7 @@ import {
 } from '../constants/storageKeys';
 import { AccentName, AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
-// ─── Picker do motywu ────────────────────────────────────────────────────────
+// ─── Accent picker data ──────────────────────────────────────────────────────
 const ACCENTS: { key: AccentName; color: string; label: string }[] = [
   { key: 'red',    color: '#E83040', label: 'Czerwony' },
   { key: 'blue',   color: '#3584E4', label: 'Niebieski' },
@@ -33,21 +34,21 @@ const ACCENTS: { key: AccentName; color: string; label: string }[] = [
   { key: 'orange', color: '#E8720C', label: 'Pomarańczowy' },
 ];
 
-// ─── Szybkie akcje ──────────────────────────────────────────────────────────
+// ─── Quick action cards ──────────────────────────────────────────────────────
 type CardDef = {
   title: string;
   desc: string;
   icon: string;
   iconLib: 'ion' | 'mci';
   accent: boolean;
-  navTarget: NavKey | null;
+  navTarget: NavKey | null; // null = dummy (Ulepszenia)
 };
 
 const CARDS: CardDef[] = [
   { title: 'Komponenty',   desc: 'CPU, GPU, RAM, dyski',     icon: 'chip',                  iconLib: 'mci', accent: false, navTarget: 'components' },
   { title: 'Konfiguracje', desc: 'Twoje zestawy',            icon: 'monitor-dashboard',     iconLib: 'mci', accent: true,  navTarget: 'configs'    },
   { title: 'Porównanie',   desc: 'Zestawiaj komponenty',     icon: 'git-compare-outline',   iconLib: 'ion', accent: false, navTarget: 'threed'     },
-  { title: 'Ulepszenia',   desc: 'Propozycje modernizacji',  icon: 'rocket-outline',        iconLib: 'ion', accent: false, navTarget: null         },
+  { title: 'Ulepszenia',   desc: 'Propozycje modernizacji',  icon: 'rocket-outline',        iconLib: 'ion', accent: false, navTarget: 'upgrades' as NavKey },
 ];
 
 export default function HomeScreen() {
@@ -83,6 +84,7 @@ export default function HomeScreen() {
     ]).start();
   }, []);
 
+  // Re-animate on tab change
   useEffect(() => {
     fadeAnim.setValue(0);
     slideAnim.setValue(16);
@@ -110,10 +112,11 @@ export default function HomeScreen() {
     );
   };
 
-  // ─── Helpery do renderowania ─────────────────────────────────────────────────────────
+  // ─── Render helpers ─────────────────────────────────────────────────────────
 
   const renderHome = () => (
     <>
+      {/* Hero */}
       <View style={styles.hero}>
         <View style={styles.heroTop}>
           <View>
@@ -125,6 +128,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Stats row */}
         <View style={styles.statsRow}>
           <StatBadge label="Zestawy" value={`${configsCount}/3`} theme={theme} styles={styles} />
           <StatBadge label="Status" value="Aktywny" theme={theme} styles={styles} accent />
@@ -132,6 +136,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* Section */}
       <Text style={styles.sectionLabel}>SZYBKIE AKCJE</Text>
 
       <View style={styles.grid}>
@@ -140,6 +145,7 @@ export default function HomeScreen() {
         ))}
       </View>
 
+      {/* Bottom promo */}
       <Pressable onPress={() => setActiveView('configs')}>
       <View style={styles.promoCard}>
         <LinearGradient
@@ -161,6 +167,7 @@ export default function HomeScreen() {
 
   const renderProfile = () => (
     <>
+      {/* Profile header */}
       <View style={styles.profileHero}>
         <View style={styles.profileAvatarWrap}>
           <LinearGradient colors={[theme.primary2, theme.primary]} style={styles.profileAvatar}>
@@ -171,6 +178,7 @@ export default function HomeScreen() {
         <Text style={styles.profileSub}>Lokalny profil użytkownika</Text>
       </View>
 
+      {/* Info card */}
       <View style={styles.infoCard}>
         <InfoRow label="Pseudonim" value={username} theme={theme} styles={styles} />
         <View style={styles.divider} />
@@ -179,6 +187,7 @@ export default function HomeScreen() {
         <InfoRow label="Motyw" value={themeName === 'dark' ? 'Ciemny' : 'Jasny'} theme={theme} styles={styles} />
       </View>
 
+      {/* Accent picker */}
       <Text style={styles.sectionLabel}>KOLOR AKCENTU</Text>
       <View style={styles.accentRow}>
         {ACCENTS.map((a) => (
@@ -197,6 +206,7 @@ export default function HomeScreen() {
         ))}
       </View>
 
+      {/* Action buttons */}
       <Pressable
         style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.8 }]}
         onPress={toggleTheme}
@@ -230,7 +240,7 @@ export default function HomeScreen() {
     </View>
   );
 
-  // Zakładka z podzespołami renderuje swojego własnego scrolla
+  // Components tab renders its own full-screen scroll — bypass the shared ScrollView
   if (activeView === 'components') {
     return (
       <View style={styles.screen}>
@@ -240,7 +250,17 @@ export default function HomeScreen() {
     );
   }
 
-  // Porównywarka - full screen 
+  // Upgrades tab — full screen
+  if (activeView === ('upgrades' as any)) {
+    return (
+      <View style={styles.screen}>
+        <UpgradesScreen />
+        <DummyBottomNav active={activeView} onChange={setActiveView} />
+      </View>
+    );
+  }
+
+  // Compare tab — full screen
   if (activeView === 'threed') {
     return (
       <View style={styles.screen}>
@@ -250,7 +270,7 @@ export default function HomeScreen() {
     );
   }
 
-  // Configi - pełny ekran z własnym scrollem 
+  // Configs tab — full screen with own scroll
   if (activeView === 'configs') {
     return (
       <View style={styles.screen}>
@@ -262,7 +282,7 @@ export default function HomeScreen() {
 
   const renderContent = () => {
     if (activeView === 'profile') return renderProfile();
-    if (activeView === 'threed') return null;
+    if (activeView === 'threed') return null; // handled below as full-screen
     return renderHome();
   };
 
@@ -282,6 +302,7 @@ export default function HomeScreen() {
   );
 }
 
+// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function StatBadge({
   label, value, theme, styles, accent = false,
@@ -320,7 +341,7 @@ function ActionCard({
         styles.actionCard,
         { transform: [{ scale }] },
         card.accent && { borderColor: theme.primary2 },
-        isDummy && { opacity: 0.45 },
+        (card.navTarget === null) && { opacity: 0.45 },
       ]}>
         <View style={[styles.cardIconWrap, card.accent && { backgroundColor: theme.primary2 }]}>
           {card.iconLib === 'mci'
@@ -372,6 +393,7 @@ function createStyles(theme: AppTheme) {
       paddingBottom: 120,
     },
 
+    // ── Hero ────────────────────────────────────────────────────────────────
     hero: {
       backgroundColor: theme.card,
       borderRadius: 28,
@@ -446,6 +468,7 @@ function createStyles(theme: AppTheme) {
       textTransform: 'uppercase',
     },
 
+    // ── Section label ────────────────────────────────────────────────────────
     sectionLabel: {
       color: theme.muted,
       fontSize: 11,
@@ -454,6 +477,7 @@ function createStyles(theme: AppTheme) {
       marginBottom: 14,
     },
 
+    // ── Action cards grid ────────────────────────────────────────────────────
     grid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -511,6 +535,7 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 0.5,
     },
 
+    // ── Promo card ───────────────────────────────────────────────────────────
     promoCard: {
       borderRadius: 22,
       overflow: 'hidden',
@@ -542,6 +567,7 @@ function createStyles(theme: AppTheme) {
       fontSize: 13,
     },
 
+    // ── Profile ──────────────────────────────────────────────────────────────
     profileHero: {
       alignItems: 'center',
       paddingVertical: 28,
@@ -675,6 +701,7 @@ function createStyles(theme: AppTheme) {
       letterSpacing: 1,
     },
 
+    // ── Placeholder ──────────────────────────────────────────────────────────
     placeholder: {
       backgroundColor: theme.card,
       borderRadius: 28,
