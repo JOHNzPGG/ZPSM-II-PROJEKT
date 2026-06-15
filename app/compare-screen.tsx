@@ -1,10 +1,12 @@
+// app/compare-screen.tsx
 // Porównanie dwóch komponentów tej samej lub różnej kategorii.
 // Zwycięzca parametru → zielone podświetlenie, niekompatybilne → wyszarzone.
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   Easing,
   Modal,
   Pressable,
@@ -20,26 +22,28 @@ import {
 } from '../constants/mockComponents';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
-// Klucze do porównywania kompatybilności komponentów 
+// ─── Which spec keys are "compatibility" fields (different = gray, no winner) ─
+
 const COMPAT_KEYS = new Set([
   'Socket', 'Typ', 'Złącze', 'Sieć', 'Rozmiar',
   'Wyjścia wideo', 'Profil OC', 'Radiator', 'USB',
   'Sloty PCIe', 'Maks. RAM',
 ]);
 
-// Helper do wyciągania numeru
+// ─── Numeric-extracting helper ─────────────────────────────────────────────
+
 function extractNumber(val: string | number): number | null {
   if (typeof val === 'number') return val;
+  // e.g. "5.3 GHz" → 5.3, "16 GB GDDR6X" → 16, "38 MB" → 38
   const match = String(val).match(/[\d.]+/);
   return match ? parseFloat(match[0]) : null;
 }
 
-// Numerycznie wyższa wartość w kwestii komponentów jest lepsza aczkolwiek w kwestii np. TDP jest na odwrót 
-const LOWER_IS_BETTER = new Set(['TDP', 'Opóźnienia', 'Napięcie']);
+// Higher = better for most specs; only TDP is lower-is-better
+const LOWER_IS_BETTER = new Set(['TDP', 'Opóźnienia', 'Napięcie', 'Litografia']);
 
 type WinnerResult = 'left' | 'right' | 'tie' | 'compat' | 'unknown';
 
-// Funkcja do porównywania który komponent jest lepszy, wyciąga numeryczną wartość przy pomocy extractNumber i porównuje je
 function getWinner(key: string, left: string | number, right: string | number): WinnerResult {
   if (COMPAT_KEYS.has(key)) return 'compat';
 
@@ -52,12 +56,16 @@ function getWinner(key: string, left: string | number, right: string | number): 
   return lWins ? 'left' : 'right';
 }
 
+// ─── Category config ───────────────────────────────────────────────────────
+
 const CATEGORIES: { key: ComponentType; label: string; icon: string; lib: 'ion' | 'mci' }[] = [
   { key: 'CPU',         label: 'CPU',       icon: 'chip',             lib: 'mci' },
   { key: 'GPU',         label: 'GPU',       icon: 'expansion-card',   lib: 'mci' },
   { key: 'RAM',         label: 'RAM',       icon: 'memory',           lib: 'mci' },
   { key: 'Motherboard', label: 'Płyta gł.', icon: 'developer-board',  lib: 'mci' },
 ];
+
+// ─── Main screen ──────────────────────────────────────────────────────────
 
 export default function CompareScreen() {
   const { theme } = useAppTheme();
@@ -67,6 +75,18 @@ export default function CompareScreen() {
   const [rightComponent, setRightComponent] = useState<Component | null>(null);
   const [pickerSide, setPickerSide] = useState<'left' | 'right' | null>(null);
   const [filterCategory, setFilterCategory] = useState<ComponentType>('CPU');
+
+  // Android back: close picker if open
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pickerSide !== null) {
+        setPickerSide(null);
+        return true;
+      }
+      return false; // let parent handle (goes to home)
+    });
+    return () => sub.remove();
+  }, [pickerSide]);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -79,6 +99,7 @@ export default function CompareScreen() {
     else setRightComponent(c);
     setPickerSide(null);
 
+    // Animate comparison in
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1, duration: 400,
@@ -87,7 +108,7 @@ export default function CompareScreen() {
     }).start();
   };
 
-  // Wrzuca wszystkie klucze szczegółów komponentów, robi z nich unikatową listę żeby porównać obydwa komponenty
+  // Merge spec keys from both selected components
   const allSpecKeys = useMemo(() => {
     const keys = new Set<string>();
     if (leftComponent)  Object.keys(leftComponent.specs).forEach(k => keys.add(k));
@@ -95,7 +116,7 @@ export default function CompareScreen() {
     return Array.from(keys);
   }, [leftComponent, rightComponent]);
 
-  // Podlicza wszystkie punkty z komponentu
+  // Count wins
   const wins = useMemo(() => {
     let l = 0, r = 0;
     if (!leftComponent || !rightComponent) return { left: 0, right: 0 };
@@ -122,7 +143,7 @@ export default function CompareScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* ── Filtr kategorii ──────────────────────────────────────────── */}
+        {/* ── Category filter ──────────────────────────────────────────── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
           {CATEGORIES.map(cat => (
             <Pressable
@@ -139,7 +160,7 @@ export default function CompareScreen() {
           ))}
         </ScrollView>
 
-        {/* ── "karty" do wyboru komponentu ───────────── */}
+        {/* ── Selector cards ───────────────────────────────────────────── */}
         <View style={styles.selectorRow}>
           <SelectorCard
             component={leftComponent}
@@ -173,9 +194,10 @@ export default function CompareScreen() {
           />
         </View>
 
-        {/* ── wiersz ze szczegółami komponentu ──────────────────── */}
+        {/* ── Spec rows ────────────────────────────────────────────────── */}
         {bothSelected ? (
           <Animated.View style={{ opacity: fadeAnim }}>
+            {/* Cross-category notice */}
             {leftComponent.type !== rightComponent.type && (
               <View style={styles.noticeBanner}>
                 <Ionicons name="information-circle-outline" size={16} color={theme.primary2} />
@@ -216,7 +238,7 @@ export default function CompareScreen() {
               })}
             </View>
 
-            {/* Porównanie ceny */}
+            {/* Price comparison */}
             <Text style={styles.sectionLabel}>CENA</Text>
             <View style={styles.priceCard}>
               <PriceBar
@@ -245,7 +267,7 @@ export default function CompareScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* ── Modal do wybrania komponentu ─────────────── */}
+      {/* ── Component picker modal ──────────────────────────────────────── */}
       {pickerSide && (
         <ComponentPickerModal
           side={pickerSide}
@@ -260,6 +282,8 @@ export default function CompareScreen() {
     </View>
   );
 }
+
+// ─── Selector card ─────────────────────────────────────────────────────────
 
 function SelectorCard({
   component, side, wins, isWinner, theme, styles, onPress,
@@ -311,6 +335,7 @@ function SelectorCard({
   );
 }
 
+// ─── Spec row ──────────────────────────────────────────────────────────────
 
 function SpecRow({
   specKey, leftVal, rightVal, winner, isCompat, lMissing, rMissing, isLast, theme, styles,
@@ -347,7 +372,7 @@ function SpecRow({
 
   return (
     <View style={[styles.specRow, !isLast && styles.specRowBorder]}>
-      {/* Wartość szczegółów komponentu po lewej */}
+      {/* Left value */}
       <View style={styles.specValWrap}>
         {leftWin && <View style={styles.winDot} />}
         <Text style={leftStyle} numberOfLines={2}>
@@ -355,6 +380,7 @@ function SpecRow({
         </Text>
       </View>
 
+      {/* Key label */}
       <View style={styles.specKeyWrap}>
         <Text style={[styles.specKey, gray && { color: theme.muted, opacity: 0.5 }]} numberOfLines={1}>
           {specKey}
@@ -364,7 +390,7 @@ function SpecRow({
         )}
       </View>
 
-      {/* Wartość szczegółów komponentu po prawej */}
+      {/* Right value */}
       <View style={[styles.specValWrap, { alignItems: 'flex-end' }]}>
         <Text style={rightStyle} numberOfLines={2}>
           {rMissing ? '—' : String(rightVal)}
@@ -375,6 +401,7 @@ function SpecRow({
   );
 }
 
+// ─── Price bar ─────────────────────────────────────────────────────────────
 
 function PriceBar({
   label, price, maxPrice, isWinner, theme,
@@ -413,6 +440,7 @@ function PriceBar({
   );
 }
 
+// ─── Component picker modal ────────────────────────────────────────────────
 
 function ComponentPickerModal({
   side, filterCategory, currentLeft, currentRight, theme, onSelect, onClose,
@@ -464,25 +492,15 @@ function ComponentPickerModal({
           </Pressable>
         </View>
 
-        {/* Filtr kategorii w pickerze */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 14 }}>
-          {CATEGORIES.map(cat => (
-            <Pressable
-              key={cat.key}
-              style={[s.chip, localFilter === cat.key && s.chipActive]}
-              onPress={() => setLocalFilter(cat.key)}
-            >
-              <Text style={[s.chipText, localFilter === cat.key && { color: '#fff' }]}>{cat.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {localFilter !== filterCategory && (
-          <View style={s.crossNote}>
-            <Ionicons name="shuffle-outline" size={14} color={theme.primary2} />
-            <Text style={s.crossNoteText}>Porównanie między kategoriami — parametry niekompatybilne będą wyszarzone.</Text>
-          </View>
-        )}
+        {/* Category label — fixed, no switching inside picker */}
+        <View style={s.categoryLabel}>
+          <Text style={s.categoryLabelText}>
+            {CATEGORIES.find(cat => cat.key === localFilter)?.label ?? localFilter}
+          </Text>
+          <Text style={s.categoryLabelSub}>
+            {available.length} {available.length === 1 ? 'komponent' : 'komponentów'}
+          </Text>
+        </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 40 }}>
           {available.map(c => {
@@ -528,8 +546,9 @@ const pickerStylesFn = (theme: AppTheme) => StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.borderStrong },
   chipActive: { backgroundColor: theme.primary, borderColor: theme.primary2 },
   chipText: { color: theme.muted, fontSize: 13, fontWeight: '700' },
-  crossNote: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#1e1012', borderRadius: 10, borderWidth: 1, borderColor: '#3a1018', paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 },
-  crossNoteText: { color: theme.primary2, fontSize: 11, flex: 1, lineHeight: 16 },
+  categoryLabel: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, paddingHorizontal: 2 },
+  categoryLabelText: { color: theme.text, fontSize: 15, fontWeight: '800' as const },
+  categoryLabelSub: { color: theme.muted, fontSize: 12 },
   item: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.card, borderRadius: 16, borderWidth: 1.5, borderColor: theme.borderStrong, paddingHorizontal: 14, paddingVertical: 12, gap: 12 },
   itemBrand: { color: theme.muted, fontSize: 10, marginBottom: 2 },
   itemName: { color: theme.text, fontSize: 14, fontWeight: '800', marginBottom: 3 },
@@ -537,6 +556,7 @@ const pickerStylesFn = (theme: AppTheme) => StyleSheet.create({
   itemPrice: { color: theme.primary2, fontSize: 14, fontWeight: '900' },
 });
 
+// ─── Styles ────────────────────────────────────────────────────────────────
 
 function createStyles(theme: AppTheme) {
   const isLight = theme.name === 'light';
@@ -555,13 +575,13 @@ function createStyles(theme: AppTheme) {
     headerSub: { color: theme.muted, fontSize: 13, marginTop: 2 },
     scroll: { paddingHorizontal: 18, paddingTop: 4 },
 
-    // Filtr
+    // Filter
     filterRow: { gap: 8, paddingBottom: 14, height: 50 },
     catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.borderStrong, ...neu },
     catChipActive: { backgroundColor: theme.primary, borderColor: theme.primary2 },
     catChipText: { color: theme.muted, fontSize: 13, fontWeight: '700' },
 
-    // Wiersz selectora
+    // Selector row
     selectorRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginBottom: 20 },
     selectorCard: {
       backgroundColor: theme.card, borderRadius: 20, padding: 14,
@@ -578,18 +598,21 @@ function createStyles(theme: AppTheme) {
     selectorEmpty: { width: 52, height: 52, borderRadius: 16, backgroundColor: theme.surfaceSunken, borderWidth: 1.5, borderColor: theme.primary2, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
     selectorEmptyText: { color: theme.muted, fontSize: 11, textAlign: 'center', lineHeight: 16 },
 
+    // VS
     vsWrap: { alignItems: 'center', justifyContent: 'center', paddingTop: 40 },
     vsText: { color: theme.muted, fontSize: 13, fontWeight: '900', letterSpacing: 2 },
     vsScore: { marginTop: 8, alignItems: 'center' },
     vsScoreNum: { color: theme.text, fontSize: 20, fontWeight: '900' },
     vsScoreDash: { color: theme.muted, fontSize: 12 },
 
+    // Notice
     noticeBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#1e1012', borderRadius: 12, borderWidth: 1, borderColor: '#3a1018', paddingHorizontal: 14, paddingVertical: 10, marginBottom: 16 },
     noticeText: { color: theme.primary2, fontSize: 12, flex: 1, lineHeight: 18 },
 
+    // Section label
     sectionLabel: { color: theme.muted, fontSize: 11, fontWeight: '700', letterSpacing: 2, marginBottom: 12 },
 
-    // Tabela ze szczegółami
+    // Spec table
     specTable: { backgroundColor: theme.card, borderRadius: 22, borderWidth: 1, borderColor: theme.borderStrong, marginBottom: 22, overflow: 'hidden', ...neu },
     specRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
     specRowBorder: { borderBottomWidth: 1, borderBottomColor: theme.border },
@@ -606,9 +629,10 @@ function createStyles(theme: AppTheme) {
 
     winDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#2EC27E' },
 
-    // Cena
+    // Price card
     priceCard: { backgroundColor: theme.card, borderRadius: 20, borderWidth: 1, borderColor: theme.borderStrong, padding: 18, marginBottom: 20, ...neu },
 
+    // Empty hint
     emptyHint: { alignItems: 'center', paddingTop: 48, paddingHorizontal: 32, gap: 16 },
     emptyHintText: { color: theme.muted, fontSize: 14, textAlign: 'center', lineHeight: 22 },
   });

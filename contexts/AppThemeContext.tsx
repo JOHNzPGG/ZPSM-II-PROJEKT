@@ -194,3 +194,5 @@ export function useAppTheme() {
   if (!context) throw new Error('useAppTheme musi być użyte wewnątrz AppThemeProvider.');
   return context;
 }
+
+export default function AppThemeContextModule() { return null; }

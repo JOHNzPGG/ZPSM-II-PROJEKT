@@ -1,3 +1,4 @@
+// app/configs-screen.tsx
 // Ekran zestawów — lista buildów (max 3) + konfigurator
 
 import { Ionicons } from '@expo/vector-icons';
@@ -24,7 +25,15 @@ import {
 import { Component } from '../constants/mockComponents';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 import BuildConfigurator, { BuildSlots, SlotKey } from '../components/BuildConfigurator';
+import CustomAlert, { AlertConfig } from '../components/CustomAlert';
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export type CompatResult = {
+  ok: boolean;
+  label: string;
+  detail: string;
+};
 
 export type Build = {
   id: string;
@@ -35,6 +44,7 @@ export type Build = {
 
 const MAX_BUILDS = 3;
 
+// ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOpen?: (hidden: boolean) => void }) {
   const { theme } = useAppTheme();
@@ -73,7 +83,13 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
 
   const handleCreateBuild = async (name: string) => {
     if (builds.length >= MAX_BUILDS) {
-      Alert.alert('Limit osiągnięty', 'Możesz mieć maksymalnie 3 zestawy. Usuń jeden, aby dodać nowy.');
+      setCustomAlert({
+        title: 'Limit zestawów',
+        message: 'Możesz mieć maksymalnie 3 zestawy komputerowe. Usuń jeden z nich, aby dodać nowy.',
+        icon: 'layers-outline',
+        iconColor: '#FFD100',
+        buttons: [{ text: 'OK', onPress: () => setCustomAlert(null) }],
+      });
       return;
     }
     const newBuild: Build = {
@@ -104,63 +120,121 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
   };
 
   const handleDeleteBuild = (id: string) => {
-    Alert.alert(
-      'Usuń zestaw',
-      'Czy na pewno chcesz usunąć ten zestaw? Tej operacji nie można cofnąć.',
-      [
-        { text: 'Anuluj', style: 'cancel' },
+    setCustomAlert({
+      title: 'Usuń zestaw',
+      message: 'Czy na pewno chcesz usunąć ten zestaw? Tej operacji nie można cofnąć.',
+      icon: 'trash-outline',
+      iconColor: '#E83040',
+      buttons: [
+        { text: 'Anuluj', style: 'cancel', onPress: () => setCustomAlert(null) },
         {
           text: 'Usuń',
           style: 'destructive',
           onPress: async () => {
+            setCustomAlert(null);
             const updated = builds.filter((b) => b.id !== id);
             await saveBuilds(updated);
             if (activeBuild?.id === id) { setActiveBuild(null); onConfiguratorOpen?.(false); }
           },
         },
       ],
-    );
+    });
   };
+
+  const [compatResults, setCompatResults] = useState<CompatResult[] | null>(null);
+  const [customAlert, setCustomAlert] = useState<AlertConfig | null>(null);
 
   const handleCheckCompatibility = () => {
     if (!activeBuild) return;
     const filled = Object.keys(activeBuild.slots).length;
     if (filled < 2) {
-      Alert.alert('Za mało komponentów', 'Dodaj co najmniej 2 komponenty, aby sprawdzić zgodność.');
+      setCustomAlert({
+        title: 'Za mało komponentów',
+        message: 'Dodaj co najmniej 2 komponenty (np. CPU i płytę główną), aby sprawdzić zgodność zestawu.',
+        icon: 'warning-outline',
+        iconColor: '#FFD100',
+        buttons: [{ text: 'OK', onPress: () => setCustomAlert(null) }],
+      });
       return;
     }
-    // Basic compatibility check
-    const mb = activeBuild.slots.motherboard;
+
+    const mb  = activeBuild.slots.motherboard;
     const cpu = activeBuild.slots.cpu;
     const ram = activeBuild.slots.ram;
-    const issues: string[] = [];
+    const psu = activeBuild.slots.psu;
+    const results: CompatResult[] = [];
 
+    // CPU ↔ Motherboard socket
     if (mb && cpu) {
-      const mbSocket = mb.specs['Socket'] as string;
+      const mbSocket  = mb.specs['Socket'] as string;
       const cpuSocket = cpu.specs['Socket'] as string;
-      if (mbSocket !== cpuSocket) {
-        issues.push(`❌ CPU (${cpuSocket}) niekompatybilny z płytą (${mbSocket})`);
-      } else {
-        issues.push(`✅ CPU zgodny z płytą główną (${mbSocket})`);
-      }
+      const ok = mbSocket === cpuSocket;
+      results.push({
+        ok,
+        label: 'Socket CPU ↔ Płyta główna',
+        detail: ok
+          ? `${cpu.name} (${cpuSocket}) pasuje do ${mb.name}`
+          : `${cpu.name} ma socket ${cpuSocket}, płyta wymaga ${mbSocket}`,
+      });
     }
 
+    // RAM ↔ Motherboard DDR type
     if (mb && ram) {
       const mbRamSpec = mb.specs['Maks. RAM'] as string;
-      const ramType = ram.specs['Typ'] as string;
-      const mbDdr = mbRamSpec?.includes('DDR5') ? 'DDR5' : 'DDR4';
-      if (ramType !== mbDdr) {
-        issues.push(`❌ RAM (${ramType}) niekompatybilny z płytą (${mbDdr})`);
-      } else {
-        issues.push(`✅ RAM zgodny z płytą (${mbDdr})`);
-      }
+      const ramType   = ram.specs['Typ'] as string;
+      const mbDdr     = mbRamSpec?.includes('DDR5') ? 'DDR5' : 'DDR4';
+      const ok        = ramType === mbDdr;
+      results.push({
+        ok,
+        label: 'Typ RAM ↔ Płyta główna',
+        detail: ok
+          ? `${ram.name} (${ramType}) zgodny z płytą`
+          : `Płyta obsługuje ${mbDdr}, wybrano RAM ${ramType}`,
+      });
     }
 
-    if (issues.length === 0) {
-      Alert.alert('Sprawdzanie zgodności', 'Dodaj płytę główną, CPU lub RAM aby sprawdzić kompatybilność.');
-    } else {
-      Alert.alert('Wyniki zgodności', issues.join('\n\n'));
+    // Cooler TDP check (basic)
+    if (cpu && activeBuild.slots.cooler) {
+      const cooler   = activeBuild.slots.cooler;
+      const cpuTdp   = parseInt(String(cpu.specs['TDP'] || '0'));
+      const maxTdp   = parseInt(String(cooler.specs['Maks. TDP'] || '999'));
+      const ok       = maxTdp >= cpuTdp;
+      results.push({
+        ok,
+        label: 'TDP CPU ↔ Chłodzenie',
+        detail: ok
+          ? `${cooler.name} (${maxTdp}W) obsługuje ${cpu.name} (${cpuTdp}W)`
+          : `${cooler.name} max ${maxTdp}W, CPU wymaga ${cpuTdp}W — chłodzenie może być za słabe`,
+      });
     }
+
+    // PSU wattage estimate
+    if (psu && (cpu || activeBuild.slots.gpu)) {
+      const cpuTdp = parseInt(String(cpu?.specs['TDP'] || '0'));
+      const gpuTdp = parseInt(String(activeBuild.slots.gpu?.specs['TDP'] || '0'));
+      const estimated = cpuTdp + gpuTdp + 100; // +100W for rest of system
+      const psuWatts  = parseInt(String(psu.specs['Moc'] || '0'));
+      const ok        = psuWatts >= estimated;
+      results.push({
+        ok,
+        label: 'Moc zasilacza ↔ Pobór mocy',
+        detail: ok
+          ? `${psu.name} (${psuWatts}W) wystarczy dla szacowanego poboru ~${estimated}W`
+          : `Szacowany pobór ~${estimated}W przekracza zasilacz ${psuWatts}W`,
+      });
+    }
+
+    if (results.length === 0) {
+      setCustomAlert({
+        title: 'Brak danych',
+        message: 'Dodaj płytę główną, CPU lub RAM do zestawu, aby sprawdzić kompatybilność.',
+        icon: 'information-circle-outline',
+        buttons: [{ text: 'Rozumiem', onPress: () => setCustomAlert(null) }],
+      });
+      return;
+    }
+
+    setCompatResults(results);
   };
 
   const totalPrice = useMemo(() => {
@@ -168,39 +242,47 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
     return Object.values(activeBuild.slots).reduce((sum, c) => sum + (c?.price ?? 0), 0);
   }, [activeBuild]);
 
+  // ── Back gesture handler (Android back + iOS swipe) ──────────────────────
 
   const goBackWithConfirm = useCallback(() => {
     const filled = activeBuild ? Object.keys(activeBuild.slots).length : 0;
     if (filled === 0) {
+      // Nothing selected — just go back silently
       setActiveBuild(null);
       onConfiguratorOpen?.(false);
       return;
     }
-    Alert.alert(
-      'Wróć do listy',
-      'Zmiany są zapisywane automatycznie. Czy chcesz wrócić do listy zestawów?',
-      [
-        { text: 'Zostań', style: 'cancel' },
+    setCustomAlert({
+      title: 'Zmiany zapisane',
+      message: 'Wszystkie zmiany zostały zapisane automatycznie. Chcesz wrócić do listy zestawów?',
+      icon: 'save-outline',
+      iconColor: '#2EC27E',
+      buttons: [
+        { text: 'Zostań', style: 'cancel', onPress: () => setCustomAlert(null) },
         {
-          text: 'Wróć',
+          text: 'Wróć do listy',
+          style: 'default',
           onPress: () => {
+            setCustomAlert(null);
             setActiveBuild(null);
             onConfiguratorOpen?.(false);
           },
         },
       ],
-    );
+    });
   }, [activeBuild, onConfiguratorOpen]);
 
+  // Android hardware back button
   useEffect(() => {
     if (!activeBuild) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       goBackWithConfirm();
-      return true;
+      return true; // prevent default back action
     });
     return () => sub.remove();
   }, [activeBuild, goBackWithConfirm]);
 
+  // ── Active build view ────────────────────────────────────────────────────
 
   if (activeBuild) {
     return (
@@ -227,10 +309,20 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
           totalPrice={totalPrice}
           onCheckCompatibility={handleCheckCompatibility}
         />
+
+        {compatResults && (
+          <CompatModal
+            results={compatResults}
+            theme={theme}
+            onClose={() => setCompatResults(null)}
+          />
+        )}
+        <CustomAlert config={customAlert} onDismiss={() => setCustomAlert(null)} />
       </View>
     );
   }
 
+  // ── Build list view ──────────────────────────────────────────────────────
 
   return (
     <View style={styles.screen}>
@@ -267,7 +359,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
           />
         ))}
 
-        {/* Przycisk do nowego zestawu */}
+        {/* New build button */}
         {builds.length < MAX_BUILDS && (
           <Pressable
             style={({ pressed }) => [styles.newBtn, pressed && { opacity: 0.8 }]}
@@ -281,7 +373,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
         <View style={{ height: 100 }} />
       </Animated.ScrollView>
 
-      {/* Modal do nazwy zestawu */}
+      {/* New build name modal */}
       {showNewModal && (
         <NewBuildModal
           theme={theme}
@@ -289,10 +381,12 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
           onClose={() => setShowNewModal(false)}
         />
       )}
+      <CustomAlert config={customAlert} onDismiss={() => setCustomAlert(null)} />
     </View>
   );
 }
 
+// ─── Build card ───────────────────────────────────────────────────────────────
 
 function BuildCard({
   build, theme, styles, onOpen, onDelete,
@@ -327,13 +421,13 @@ function BuildCard({
           </Pressable>
         </View>
 
-        {/* Pasek postępu */}
+        {/* Progress bar */}
         <View style={styles.progressBg}>
           <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
         <Text style={styles.progressLabel}>{filledCount} / 8 komponentów</Text>
 
-        {/* Preview wrzuconych komponentów */}
+        {/* Filled slots preview */}
         {filledCount > 0 && (
           <View style={styles.slotPreview}>
             {Object.entries(build.slots).slice(0, 4).map(([key, comp]) => (
@@ -365,6 +459,7 @@ function BuildCard({
   );
 }
 
+// ─── New build modal ──────────────────────────────────────────────────────────
 
 function NewBuildModal({
   theme, onConfirm, onClose,
@@ -443,6 +538,7 @@ function NewBuildModal({
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 function createStyles(theme: AppTheme) {
   const isLight = theme.name === 'light';
@@ -517,4 +613,148 @@ function createStyles(theme: AppTheme) {
     configTitle: { color: theme.text, fontSize: 18, fontWeight: '900' },
     configSub: { color: theme.muted, fontSize: 11, marginTop: 1 },
   });
+}
+
+// ─── Compatibility Modal ──────────────────────────────────────────────────────
+
+function CompatModal({
+  results, theme, onClose,
+}: {
+  results: CompatResult[];
+  theme: AppTheme;
+  onClose: () => void;
+}) {
+  const slideAnim = useRef(new Animated.Value(60)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+
+  const allOk = results.every((r) => r.ok);
+  const okCount = results.filter((r) => r.ok).length;
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 65, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const close = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 60, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+    ]).start(() => onClose());
+  };
+
+  const s = StyleSheet.create({
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)' },
+    sheet: {
+      position: 'absolute', left: 0, right: 0, bottom: 0,
+      backgroundColor: theme.background,
+      borderTopLeftRadius: 28, borderTopRightRadius: 28,
+      borderWidth: 1, borderBottomWidth: 0, borderColor: theme.borderStrong,
+      paddingHorizontal: 20, paddingTop: 10, paddingBottom: 32,
+      shadowColor: '#000', shadowOffset: { width: 0, height: -8 },
+      shadowOpacity: 0.4, shadowRadius: 20, elevation: 18,
+    },
+    handle: {
+      width: 38, height: 4, borderRadius: 2,
+      backgroundColor: theme.muted, opacity: 0.35,
+      alignSelf: 'center', marginBottom: 20,
+    },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+    title: { color: theme.text, fontSize: 20, fontWeight: '900' },
+    closeBtn: {
+      width: 34, height: 34, borderRadius: 17,
+      backgroundColor: theme.card, borderWidth: 1, borderColor: theme.borderStrong,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    scoreBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      borderRadius: 16, padding: 14, marginBottom: 20,
+      borderWidth: 1,
+    },
+    scoreNum: { fontSize: 32, fontWeight: '900' },
+    scoreLabel: { fontSize: 13, fontWeight: '700', marginBottom: 2 },
+    scoreDesc: { fontSize: 12 },
+    resultRow: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+      backgroundColor: theme.card, borderRadius: 16,
+      borderWidth: 1, borderColor: theme.borderStrong,
+      padding: 14, marginBottom: 10,
+    },
+    iconWrap: {
+      width: 32, height: 32, borderRadius: 16,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    rowLabel: { fontSize: 13, fontWeight: '800', marginBottom: 3 },
+    rowDetail: { fontSize: 12, lineHeight: 17 },
+    doneBtn: {
+      borderRadius: 16, paddingVertical: 15,
+      alignItems: 'center', marginTop: 8,
+    },
+    doneBtnText: { color: '#fff', fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+  });
+
+  const bannerBg   = allOk ? '#0d1f14' : '#1e1012';
+  const bannerBord = allOk ? '#2EC27E' : theme.primary2;
+  const scoreColor = allOk ? '#2EC27E' : theme.primary2;
+
+  return (
+    <Modal transparent animationType="none" onRequestClose={close}>
+      <Animated.View style={[s.backdrop, { opacity: fadeAnim }]}>
+        <Pressable style={{ flex: 1 }} onPress={close} />
+      </Animated.View>
+
+      <Animated.View style={[s.sheet, { transform: [{ translateY: slideAnim }], opacity: fadeAnim }]}>
+        <View style={s.handle} />
+
+        <View style={s.header}>
+          <Text style={s.title}>Wyniki zgodności</Text>
+          <Pressable style={s.closeBtn} onPress={close}>
+            <Ionicons name="close" size={18} color={theme.text} />
+          </Pressable>
+        </View>
+
+        {/* Score banner */}
+        <View style={[s.scoreBanner, { backgroundColor: bannerBg, borderColor: bannerBord }]}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: theme.surfaceSunken, borderWidth: 2, borderColor: scoreColor, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={[s.scoreNum, { color: scoreColor }]}>{okCount}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.scoreLabel, { color: scoreColor }]}>
+              {okCount} / {results.length} {allOk ? '— Zestaw zgodny ✓' : '— Wykryto problemy'}
+            </Text>
+            <Text style={[s.scoreDesc, { color: theme.muted }]}>
+              {allOk
+                ? 'Wszystkie sprawdzone komponenty są ze sobą kompatybilne.'
+                : 'Niektóre komponenty mogą być niekompatybilne — sprawdź szczegóły poniżej.'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Result rows */}
+        {results.map((r, i) => (
+          <View key={i} style={s.resultRow}>
+            <View style={[s.iconWrap, { backgroundColor: r.ok ? '#0d1f14' : '#1e1012' }]}>
+              <Ionicons
+                name={r.ok ? 'checkmark-circle' : 'close-circle'}
+                size={22}
+                color={r.ok ? '#2EC27E' : '#E83040'}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.rowLabel, { color: r.ok ? '#2EC27E' : '#E83040' }]}>{r.label}</Text>
+              <Text style={[s.rowDetail, { color: theme.textSecondary }]}>{r.detail}</Text>
+            </View>
+          </View>
+        ))}
+
+        <Pressable
+          style={[s.doneBtn, { backgroundColor: allOk ? '#1B6B3A' : theme.primary }]}
+          onPress={close}
+        >
+          <Text style={s.doneBtnText}>{allOk ? 'Świetnie, zamknij ✓' : 'Rozumiem, poprawię'}</Text>
+        </Pressable>
+      </Animated.View>
+    </Modal>
+  );
 }
