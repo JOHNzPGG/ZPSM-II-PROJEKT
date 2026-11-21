@@ -1,5 +1,4 @@
 // components/CustomAlert.tsx
-// Niestandardowy alert w stylu aplikacji — zastępuje Alert.alert
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
@@ -25,7 +24,7 @@ export type AlertButton = {
 export type AlertConfig = {
   title: string;
   message: string;
-  icon?: string; // Ionicons name
+  icon?: string;
   iconColor?: string;
   buttons: AlertButton[];
 };
@@ -40,17 +39,17 @@ export default function CustomAlert({
   onDismiss: () => void;
 }) {
   const { theme } = useAppTheme();
-  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const scaleAnim = useRef(new Animated.Value(0.88)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (config) {
-      scaleAnim.setValue(0.85);
+      scaleAnim.setValue(0.88);
       fadeAnim.setValue(0);
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 220,
+          duration: 200,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -66,49 +65,44 @@ export default function CustomAlert({
 
   if (!config) return null;
 
-  const isLight = theme.name === 'light';
-
-  // Determine icon + color from title if not provided
+  // Auto-resolve icon from title
   const resolveIcon = (): { name: string; color: string } => {
     if (config.icon) return { name: config.icon, color: config.iconColor ?? theme.primary2 };
     const t = config.title.toLowerCase();
-    if (t.includes('usuń') || t.includes('błąd') || t.includes('error'))
-      return { name: 'alert-circle', color: '#E83040' };
-    if (t.includes('zgoda') || t.includes('kompatybilność') || t.includes('zapisane'))
-      return { name: 'checkmark-circle', color: '#2EC27E' };
-    if (t.includes('brak') || t.includes('limit'))
-      return { name: 'warning', color: '#FFD100' };
-    if (t.includes('wróć') || t.includes('powrót'))
-      return { name: 'save-outline', color: theme.primary2 };
-    return { name: 'information-circle', color: theme.primary2 };
+    if (t.includes('usuń') || t.includes('błąd'))   return { name: 'trash-outline',            color: '#E83040' };
+    if (t.includes('zapisane') || t.includes('ok'))  return { name: 'checkmark-circle-outline', color: '#2EC27E' };
+    if (t.includes('limit') || t.includes('mało'))   return { name: 'warning-outline',          color: '#FFD100' };
+    if (t.includes('wróć') || t.includes('powrót'))  return { name: 'save-outline',             color: theme.primary2 };
+    return { name: 'information-circle-outline', color: theme.primary2 };
   };
 
   const { name: iconName, color: iconColor } = resolveIcon();
+  const isSingle = config.buttons.length === 1;
 
   return (
     <Modal transparent animationType="none" onRequestClose={onDismiss}>
       {/* Backdrop */}
-      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: fadeAnim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
       </Animated.View>
 
-      {/* Dialog */}
-      <View style={styles.center} pointerEvents="box-none">
+      {/* Center overlay */}
+      <View style={styles.overlay} pointerEvents="box-none">
         <Animated.View
           style={[
             styles.dialog,
             {
               backgroundColor: theme.card,
               borderColor: theme.borderStrong,
-              shadowColor: theme.neuShadowDark,
+              shadowColor: '#000',
               transform: [{ scale: scaleAnim }],
               opacity: fadeAnim,
             },
           ]}
         >
           {/* Icon */}
-          <View style={[styles.iconWrap, { backgroundColor: iconColor + '18' }]}>
-            <Ionicons name={iconName as any} size={32} color={iconColor} />
+          <View style={[styles.iconWrap, { backgroundColor: iconColor + '20' }]}>
+            <Ionicons name={iconName as any} size={30} color={iconColor} />
           </View>
 
           {/* Title */}
@@ -119,58 +113,61 @@ export default function CustomAlert({
             {config.message}
           </Text>
 
-          {/* Divider */}
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          {/* Separator */}
+          <View style={[styles.separator, { backgroundColor: theme.border }]} />
 
           {/* Buttons */}
-          <View style={[
-            styles.buttonRow,
-            config.buttons.length === 1 && styles.buttonRowSingle,
-          ]}>
-            {config.buttons.map((btn, i) => {
-              const isDestructive = btn.style === 'destructive';
-              const isCancel      = btn.style === 'cancel';
-              const isLast        = i === config.buttons.length - 1;
+          {isSingle ? (
+            // Single button — full width
+            <Pressable
+              style={({ pressed }) => [
+                styles.btnSingle,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={config.buttons[0].onPress}
+            >
+              <Text style={[
+                styles.btnText,
+                { color: config.buttons[0].style === 'destructive' ? '#E83040' : theme.primary2 },
+              ]}>
+                {config.buttons[0].text}
+              </Text>
+            </Pressable>
+          ) : (
+            // Multiple buttons — row
+            <View style={styles.btnRow}>
+              {config.buttons.map((btn, i) => {
+                const isDestructive = btn.style === 'destructive';
+                const isCancel      = btn.style === 'cancel';
+                const btnColor      = isDestructive ? '#E83040' : isCancel ? theme.muted : theme.primary2;
+                const isLast        = i === config.buttons.length - 1;
 
-              return (
-                <React.Fragment key={i}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.button,
-                      config.buttons.length === 1 && styles.buttonFull,
-                      isDestructive && { backgroundColor: '#E83040' + '18' },
-                      !isDestructive && !isCancel && { backgroundColor: theme.primary2 + '15' },
-                      pressed && { opacity: 0.75 },
-                    ]}
-                    onPress={() => {
-                      btn.onPress();
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.buttonText,
-                        {
-                          color: isDestructive
-                            ? '#E83040'
-                            : isCancel
-                            ? theme.muted
-                            : theme.primary2,
-                          fontWeight: isCancel ? '600' : '800',
-                        },
+                return (
+                  <React.Fragment key={i}>
+                    {i > 0 && (
+                      <View style={[styles.btnDividerV, { backgroundColor: theme.border }]} />
+                    )}
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.btn,
+                        i === 0 && styles.btnLeft,
+                        isLast && styles.btnRight,
+                        pressed && { opacity: 0.65 },
                       ]}
+                      onPress={btn.onPress}
                     >
-                      {btn.text}
-                    </Text>
-                  </Pressable>
-
-                  {/* Vertical divider between buttons */}
-                  {!isLast && config.buttons.length > 1 && (
-                    <View style={[styles.btnDivider, { backgroundColor: theme.border }]} />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </View>
+                      <Text style={[
+                        styles.btnText,
+                        { color: btnColor, fontWeight: isCancel ? '600' : '800' },
+                      ]}>
+                        {btn.text}
+                      </Text>
+                    </Pressable>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -181,79 +178,82 @@ export default function CustomAlert({
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  center: {
+  overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 36,
   },
   dialog: {
     width: '100%',
-    maxWidth: 340,
     borderRadius: 24,
     borderWidth: 1,
-    paddingTop: 28,
-    paddingHorizontal: 24,
-    paddingBottom: 0,
-    alignItems: 'center',
+    overflow: 'hidden',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
     elevation: 16,
   },
   iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    alignSelf: 'center',
+    marginTop: 26,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '900',
     textAlign: 'center',
+    letterSpacing: -0.2,
+    paddingHorizontal: 20,
     marginBottom: 8,
-    letterSpacing: -0.3,
   },
   message: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 24,
+    lineHeight: 20,
+    paddingHorizontal: 20,
+    marginBottom: 22,
   },
-  divider: {
-    width: '200%',
+  separator: {
     height: 1,
-    marginBottom: 0,
+    width: '100%',
   },
-  buttonRow: {
+  // Single button
+  btnSingle: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Multi button row
+  btnRow: {
     flexDirection: 'row',
-    width: '200%',
+    width: '100%',
   },
-  buttonRowSingle: {
-    flexDirection: 'column',
-  },
-  button: {
+  btn: {
     flex: 1,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
   },
-  buttonFull: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  btnLeft: {
+    // no extra radius — dialog overflow:hidden handles it
   },
-  buttonText: {
-    fontSize: 15,
-    letterSpacing: 0.2,
+  btnRight: {
+    // no extra radius
   },
-  btnDivider: {
+  btnDividerV: {
     width: 1,
+  },
+  btnText: {
+    fontSize: 15,
+    letterSpacing: 0.1,
+    fontWeight: '800',
   },
 });
