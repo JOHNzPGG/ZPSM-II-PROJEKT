@@ -1,48 +1,37 @@
-// app/configs-screen.tsx
-// Ekran zestawów — lista buildów (max 3) + konfigurator
-
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   BackHandler,
   Easing,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import {
-  ACTIVE_USER_KEY,
-  LEGACY_USERNAME_KEY,
-  userConfigsKey,
-} from '../constants/storageKeys';
+import BuildConfigurator, { SlotKey } from '../components/BuildConfigurator';
+import CustomAlert, { AlertConfig } from '../components/CustomAlert';
 import { Component } from '../constants/mockComponents';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
-import BuildConfigurator, { BuildSlots, SlotKey } from '../components/BuildConfigurator';
-import CustomAlert, { AlertConfig } from '../components/CustomAlert';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-export type CompatResult = {
-  ok: boolean;
-  label: string;
-  detail: string;
-};
-
-export type Build = {
-  id: string;
-  name: string;
-  slots: BuildSlots;
-  createdAt: string;
-};
-
-const MAX_BUILDS = 3;
+import {
+  calculateBuildTotalPrice,
+  checkBuildCompatibility,
+  CompatibilityCheckResult,
+  countFilledSlots,
+  TOTAL_BUILD_SLOTS,
+} from '../services/compatibilityService';
+import {
+  Build,
+  canAddBuild,
+  createBuild,
+  deleteBuild,
+  getActiveUser,
+  getUserBuilds,
+  MAX_BUILDS,
+  updateBuildSlot,
+} from '../services/storageService';
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
@@ -54,6 +43,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
   const [activeBuild, setActiveBuild] = useState<Build | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [username, setUsername] = useState('');
+  const [customAlert, setCustomAlert] = useState<AlertConfig | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -67,56 +57,37 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
   }, []);
 
   const loadBuilds = async () => {
-    const user = (await AsyncStorage.getItem(ACTIVE_USER_KEY)) ?? (await AsyncStorage.getItem(LEGACY_USERNAME_KEY));
+    const user = await getActiveUser();
     if (!user) return;
     setUsername(user);
-    const raw = await AsyncStorage.getItem(userConfigsKey(user));
-    const parsed: Build[] = raw ? JSON.parse(raw) : [];
-    setBuilds(parsed);
-  };
-
-  const saveBuilds = async (updated: Build[]) => {
-    if (!username) return;
-    setBuilds(updated);
-    await AsyncStorage.setItem(userConfigsKey(username), JSON.stringify(updated));
+    setBuilds(await getUserBuilds(user));
   };
 
   const handleCreateBuild = async (name: string) => {
-    if (builds.length >= MAX_BUILDS) {
+    if (!username) return;
+    if (!canAddBuild(builds)) {
       setCustomAlert({
         title: 'Limit zestawów',
-        message: 'Możesz mieć maksymalnie 3 zestawy komputerowe. Usuń jeden z nich, aby dodać nowy.',
+        message: `Możesz mieć maksymalnie ${MAX_BUILDS} zestawy komputerowe. Usuń jeden z nich, aby dodać nowy.`,
         icon: 'layers-outline',
         iconColor: '#FFD100',
         buttons: [{ text: 'OK', onPress: () => setCustomAlert(null) }],
       });
       return;
     }
-    const newBuild: Build = {
-      id: Date.now().toString(),
-      name: name.trim() || `Zestaw ${builds.length + 1}`,
-      slots: {},
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...builds, newBuild];
-    await saveBuilds(updated);
+    const newBuild = await createBuild(username, name);
+    setBuilds((prev) => [...prev, newBuild]);
     setActiveBuild(newBuild);
     onConfiguratorOpen?.(true);
     setShowNewModal(false);
   };
 
   const handleSlotChange = async (key: SlotKey, component: Component | null) => {
-    if (!activeBuild) return;
-    const updatedSlots: BuildSlots = { ...activeBuild.slots };
-    if (component) {
-      updatedSlots[key] = component;
-    } else {
-      delete updatedSlots[key];
-    }
-    const updatedBuild: Build = { ...activeBuild, slots: updatedSlots };
+    if (!activeBuild || !username) return;
+    const updatedBuild = await updateBuildSlot(username, activeBuild.id, key, component);
+    if (!updatedBuild) return;
     setActiveBuild(updatedBuild);
-    const updated = builds.map((b) => (b.id === updatedBuild.id ? updatedBuild : b));
-    await saveBuilds(updated);
+    setBuilds((prev) => prev.map((b) => (b.id === updatedBuild.id ? updatedBuild : b)));
   };
 
   const handleDeleteBuild = (id: string) => {
@@ -132,22 +103,24 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
           style: 'destructive',
           onPress: async () => {
             setCustomAlert(null);
-            const updated = builds.filter((b) => b.id !== id);
-            await saveBuilds(updated);
-            if (activeBuild?.id === id) { setActiveBuild(null); onConfiguratorOpen?.(false); }
+            if (!username) return;
+            const updated = await deleteBuild(username, id);
+            setBuilds(updated);
+            if (activeBuild?.id === id) {
+              setActiveBuild(null);
+              onConfiguratorOpen?.(false);
+            }
           },
         },
       ],
     });
   };
 
-  const [compatResults, setCompatResults] = useState<CompatResult[] | null>(null);
-  const [customAlert, setCustomAlert] = useState<AlertConfig | null>(null);
+  const [compatResults, setCompatResults] = useState<CompatibilityCheckResult[] | null>(null);
 
   const handleCheckCompatibility = () => {
     if (!activeBuild) return;
-    const filled = Object.keys(activeBuild.slots).length;
-    if (filled < 2) {
+    if (countFilledSlots(activeBuild.slots) < 2) {
       setCustomAlert({
         title: 'Za mało komponentów',
         message: 'Dodaj co najmniej 2 komponenty (np. CPU i płytę główną), aby sprawdzić zgodność zestawu.',
@@ -158,72 +131,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
       return;
     }
 
-    const mb  = activeBuild.slots.motherboard;
-    const cpu = activeBuild.slots.cpu;
-    const ram = activeBuild.slots.ram;
-    const psu = activeBuild.slots.psu;
-    const results: CompatResult[] = [];
-
-    // CPU ↔ Motherboard socket
-    if (mb && cpu) {
-      const mbSocket  = mb.specs['Socket'] as string;
-      const cpuSocket = cpu.specs['Socket'] as string;
-      const ok = mbSocket === cpuSocket;
-      results.push({
-        ok,
-        label: 'Socket CPU ↔ Płyta główna',
-        detail: ok
-          ? `${cpu.name} (${cpuSocket}) pasuje do ${mb.name}`
-          : `${cpu.name} ma socket ${cpuSocket}, płyta wymaga ${mbSocket}`,
-      });
-    }
-
-    // RAM ↔ Motherboard DDR type
-    if (mb && ram) {
-      const mbRamSpec = mb.specs['Maks. RAM'] as string;
-      const ramType   = ram.specs['Typ'] as string;
-      const mbDdr     = mbRamSpec?.includes('DDR5') ? 'DDR5' : 'DDR4';
-      const ok        = ramType === mbDdr;
-      results.push({
-        ok,
-        label: 'Typ RAM ↔ Płyta główna',
-        detail: ok
-          ? `${ram.name} (${ramType}) zgodny z płytą`
-          : `Płyta obsługuje ${mbDdr}, wybrano RAM ${ramType}`,
-      });
-    }
-
-    // Cooler TDP check (basic)
-    if (cpu && activeBuild.slots.cooler) {
-      const cooler   = activeBuild.slots.cooler;
-      const cpuTdp   = parseInt(String(cpu.specs['TDP'] || '0'));
-      const maxTdp   = parseInt(String(cooler.specs['Maks. TDP'] || '999'));
-      const ok       = maxTdp >= cpuTdp;
-      results.push({
-        ok,
-        label: 'TDP CPU ↔ Chłodzenie',
-        detail: ok
-          ? `${cooler.name} (${maxTdp}W) obsługuje ${cpu.name} (${cpuTdp}W)`
-          : `${cooler.name} max ${maxTdp}W, CPU wymaga ${cpuTdp}W — chłodzenie może być za słabe`,
-      });
-    }
-
-    // PSU wattage estimate
-    if (psu && (cpu || activeBuild.slots.gpu)) {
-      const cpuTdp = parseInt(String(cpu?.specs['TDP'] || '0'));
-      const gpuTdp = parseInt(String(activeBuild.slots.gpu?.specs['TDP'] || '0'));
-      const estimated = cpuTdp + gpuTdp + 100; // +100W for rest of system
-      const psuWatts  = parseInt(String(psu.specs['Moc'] || '0'));
-      const ok        = psuWatts >= estimated;
-      results.push({
-        ok,
-        label: 'Moc zasilacza ↔ Pobór mocy',
-        detail: ok
-          ? `${psu.name} (${psuWatts}W) wystarczy dla szacowanego poboru ~${estimated}W`
-          : `Szacowany pobór ~${estimated}W przekracza zasilacz ${psuWatts}W`,
-      });
-    }
-
+    const results = checkBuildCompatibility(activeBuild.slots);
     if (results.length === 0) {
       setCustomAlert({
         title: 'Brak danych',
@@ -237,11 +145,10 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
     setCompatResults(results);
   };
 
-  const totalPrice = useMemo(() => {
-    if (!activeBuild) return 0;
-    return Object.values(activeBuild.slots).reduce((sum, c) => sum + (c?.price ?? 0), 0);
-  }, [activeBuild]);
-
+  const totalPrice = useMemo(
+    () => (activeBuild ? calculateBuildTotalPrice(activeBuild.slots) : 0),
+    [activeBuild],
+  );
   // ── Back gesture handler (Android back + iOS swipe) ──────────────────────
 
   const goBackWithConfirm = useCallback(() => {
@@ -295,7 +202,7 @@ export default function ConfigsScreen({ onConfiguratorOpen }: { onConfiguratorOp
           <View style={{ flex: 1 }}>
             <Text style={styles.configTitle} numberOfLines={1}>{activeBuild.name}</Text>
             <Text style={styles.configSub}>
-              {Object.keys(activeBuild.slots).length} / 8 slotów wypełnionych
+              {countFilledSlots(activeBuild.slots)} / {TOTAL_BUILD_SLOTS} slotów wypełnionych
             </Text>
           </View>
           <Pressable onPress={() => handleDeleteBuild(activeBuild.id)}>
@@ -400,7 +307,7 @@ function BuildCard({
   const scale = useRef(new Animated.Value(1)).current;
   const filledCount = Object.keys(build.slots).length;
   const totalPrice = Object.values(build.slots).reduce((s, c) => s + (c?.price ?? 0), 0);
-  const progress = filledCount / 8;
+  const progress = filledCount / TOTAL_BUILD_SLOTS;
 
   return (
     <Pressable
@@ -425,7 +332,9 @@ function BuildCard({
         <View style={styles.progressBg}>
           <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
-        <Text style={styles.progressLabel}>{filledCount} / 8 komponentów</Text>
+        <Text style={styles.progressLabel}>
+          {filledCount} / {TOTAL_BUILD_SLOTS} komponentów
+        </Text>
 
         {/* Filled slots preview */}
         {filledCount > 0 && (
@@ -620,7 +529,7 @@ function createStyles(theme: AppTheme) {
 function CompatModal({
   results, theme, onClose,
 }: {
-  results: CompatResult[];
+  results: CompatibilityCheckResult[];
   theme: AppTheme;
   onClose: () => void;
 }) {

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
-export type NavKey = 'components' | 'threed' | 'home' | 'configs' | 'profile';
+export type NavKey = 'components' | 'compare' | 'home' | 'configs' | 'profile' | 'upgrades';
 
 // Całkowita wysokość navbara + padding — tyle musi zjechać żeby zniknąć
 const NAV_TOTAL_H = 110;
@@ -69,7 +69,7 @@ export default function DummyBottomNav({ active, onChange, hidden = false }: Pro
     }).start();
   }, [hidden]);
 
-  const items: Array<{ id: NavKey; label: string; icon: ReactNode; activeIcon: ReactNode }> = [
+  const items: { id: NavKey; label: string; icon: ReactNode; activeIcon: ReactNode }[] = [
     {
       id: 'components',
       label: 'Części',
@@ -77,7 +77,7 @@ export default function DummyBottomNav({ active, onChange, hidden = false }: Pro
       activeIcon: <MaterialCommunityIcons name="chip" size={24} color={theme.primary2} />,
     },
     {
-      id: 'threed',
+      id: 'compare',
       label: 'Porównanie',
       icon: <Text style={styles.textVs}>VS</Text>,
       activeIcon: <Text style={[styles.textVs, { color: theme.primary2, fontSize: 15 }]}>VS</Text>,

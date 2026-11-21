@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { getActiveUser } from '../services/storageService';
 import {
   ActivityIndicator,
   Animated,
@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ACTIVE_USER_KEY, LEGACY_USERNAME_KEY } from '../constants/storageKeys';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import {
   checkAndUpdateDatabase,
@@ -43,9 +42,7 @@ export default function IndexGate() {
     try {
       // 1. Sprawdz usera
       setStatusMessage('Sprawdzanie profilu...');
-      const activeUser =
-        (await AsyncStorage.getItem(ACTIVE_USER_KEY)) ??
-        (await AsyncStorage.getItem(LEGACY_USERNAME_KEY));
+      const activeUser = await getActiveUser();
       setHasUser(Boolean(activeUser));
 
       // 2. Sprawdz i zaktualizuj baze komponentow

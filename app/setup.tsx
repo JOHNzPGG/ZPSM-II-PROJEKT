@@ -1,7 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { setActiveUser, validateNickname } from '../services/storageService';
 import {
   Alert,
   Animated,
@@ -14,12 +14,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  ACTIVE_USER_KEY,
-  LEGACY_USERNAME_KEY,
-  userConfigsKey,
-  userProfileKey,
-} from '../constants/storageKeys';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
 // Setup do zarządzania nickiem użytkownika w lokalnej bazie 
@@ -69,28 +63,15 @@ export default function SetupScreen() {
   }, []);
 
   const handleSave = async () => {
-    const nickname = name.trim();
-    if (nickname.length < 3) {
-      Alert.alert('Błąd', 'Pseudonim musi mieć co najmniej 3 znaki.');
+    const validation = validateNickname(name);
+    if (!validation.valid) {
+      Alert.alert('Błąd', validation.error);
       return;
     }
     try {
-      await AsyncStorage.multiSet([
-        [ACTIVE_USER_KEY, nickname],
-        [LEGACY_USERNAME_KEY, nickname],
-      ]);
-      const profileKey = userProfileKey(nickname);
-      const configsKey = userConfigsKey(nickname);
-      const existingProfile = await AsyncStorage.getItem(profileKey);
-      const existingConfigs = await AsyncStorage.getItem(configsKey);
-      if (!existingProfile) {
-        await AsyncStorage.setItem(profileKey, JSON.stringify({ nickname, createdAt: new Date().toISOString() }));
-      }
-      if (!existingConfigs) {
-        await AsyncStorage.setItem(configsKey, JSON.stringify([]));
-      }
+      await setActiveUser(validation.trimmed);
       router.replace('/home');
-    } catch (error) {
+    } catch {
       Alert.alert('Błąd', 'Nie udało się zapisać pseudonimu.');
     }
   };

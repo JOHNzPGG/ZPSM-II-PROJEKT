@@ -5,6 +5,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  compareComponents,
+  getSpecWinner,
+  WinnerResult,
+} from '../services/comparisonService';
+import {
   Animated,
   BackHandler,
   Easing,
@@ -21,40 +26,6 @@ import {
   MOCK_COMPONENTS,
 } from '../constants/mockComponents';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
-
-// ─── Which spec keys are "compatibility" fields (different = gray, no winner) ─
-
-const COMPAT_KEYS = new Set([
-  'Socket', 'Typ', 'Złącze', 'Sieć', 'Rozmiar',
-  'Wyjścia wideo', 'Profil OC', 'Radiator', 'USB',
-  'Sloty PCIe', 'Maks. RAM',
-]);
-
-// ─── Numeric-extracting helper ─────────────────────────────────────────────
-
-function extractNumber(val: string | number): number | null {
-  if (typeof val === 'number') return val;
-  // e.g. "5.3 GHz" → 5.3, "16 GB GDDR6X" → 16, "38 MB" → 38
-  const match = String(val).match(/[\d.]+/);
-  return match ? parseFloat(match[0]) : null;
-}
-
-// Higher = better for most specs; only TDP is lower-is-better
-const LOWER_IS_BETTER = new Set(['TDP', 'Opóźnienia', 'Napięcie', 'Litografia']);
-
-type WinnerResult = 'left' | 'right' | 'tie' | 'compat' | 'unknown';
-
-function getWinner(key: string, left: string | number, right: string | number): WinnerResult {
-  if (COMPAT_KEYS.has(key)) return 'compat';
-
-  const l = extractNumber(left);
-  const r = extractNumber(right);
-  if (l === null || r === null) return 'unknown';
-  if (l === r) return 'tie';
-
-  const lWins = LOWER_IS_BETTER.has(key) ? l < r : l > r;
-  return lWins ? 'left' : 'right';
-}
 
 // ─── Category config ───────────────────────────────────────────────────────
 
@@ -109,27 +80,11 @@ export default function CompareScreen() {
   };
 
   // Merge spec keys from both selected components
-  const allSpecKeys = useMemo(() => {
-    const keys = new Set<string>();
-    if (leftComponent)  Object.keys(leftComponent.specs).forEach(k => keys.add(k));
-    if (rightComponent) Object.keys(rightComponent.specs).forEach(k => keys.add(k));
-    return Array.from(keys);
-  }, [leftComponent, rightComponent]);
-
-  // Count wins
-  const wins = useMemo(() => {
-    let l = 0, r = 0;
-    if (!leftComponent || !rightComponent) return { left: 0, right: 0 };
-    for (const key of allSpecKeys) {
-      const lv = leftComponent.specs[key];
-      const rv = rightComponent.specs[key];
-      if (lv === undefined || rv === undefined) continue;
-      const w = getWinner(key, lv, rv);
-      if (w === 'left') l++;
-      if (w === 'right') r++;
-    }
-    return { left: l, right: r };
-  }, [leftComponent, rightComponent, allSpecKeys]);
+  const { specKeys: allSpecKeys, leftWins, rightWins } = useMemo(
+    () => compareComponents(leftComponent, rightComponent),
+    [leftComponent, rightComponent],
+  );
+  const wins = { left: leftWins, right: rightWins };
 
   const bothSelected = !!leftComponent && !!rightComponent;
 
@@ -214,7 +169,7 @@ export default function CompareScreen() {
                 const lv = leftComponent.specs[key];
                 const rv = rightComponent.specs[key];
                 const winner = lv !== undefined && rv !== undefined
-                  ? getWinner(key, lv, rv)
+                  ? getSpecWinner(key, lv, rv)
                   : 'unknown';
                 const isCompat = winner === 'compat';
                 const lMissing = lv === undefined;
@@ -455,7 +410,6 @@ function ComponentPickerModal({
 }) {
   const slideAnim = useRef(new Animated.Value(80)).current;
   const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const [localFilter, setLocalFilter] = useState<ComponentType>(filterCategory);
 
   React.useEffect(() => {
     Animated.parallel([
@@ -471,7 +425,7 @@ function ComponentPickerModal({
     ]).start(() => onClose());
   };
 
-  const available = MOCK_COMPONENTS.filter(c => c.type === localFilter);
+  const available = MOCK_COMPONENTS.filter(c => c.type === filterCategory);
   const otherPick = side === 'left' ? currentRight : currentLeft;
 
   const s = pickerStylesFn(theme);
@@ -495,7 +449,7 @@ function ComponentPickerModal({
         {/* Category label — fixed, no switching inside picker */}
         <View style={s.categoryLabel}>
           <Text style={s.categoryLabelText}>
-            {CATEGORIES.find(cat => cat.key === localFilter)?.label ?? localFilter}
+            {CATEGORIES.find(cat => cat.key === filterCategory)?.label ?? filterCategory}
           </Text>
           <Text style={s.categoryLabelSub}>
             {available.length} {available.length === 1 ? 'komponent' : 'komponentów'}

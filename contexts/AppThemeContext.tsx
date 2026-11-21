@@ -1,8 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
-const THEME_STORAGE_KEY = 'pcua_theme';
-const ACCENT_STORAGE_KEY = 'pcua_accent';
+const themeKey = (username?: string) => (username ? `pcua_theme_${username}` : 'pcua_theme');
+const accentKey = (username?: string) => (username ? `pcua_accent_${username}` : 'pcua_accent');
+
+type ProviderProps = {
+  children: ReactNode;
+  username?: string;
+};
 
 export type ThemeName = 'dark' | 'light';
 export type AccentName = 'red' | 'blue' | 'green' | 'purple' | 'orange';
@@ -149,31 +154,31 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function AppThemeProvider({ children }: { children: ReactNode }) {
+export function AppThemeProvider({ children, username }: ProviderProps) {
   const [themeName, setThemeName] = useState<ThemeName>('dark');
   const [accentName, setAccentName] = useState<AccentName>('red');
 
   useEffect(() => {
     const load = async () => {
       const [savedTheme, savedAccent] = await Promise.all([
-        AsyncStorage.getItem(THEME_STORAGE_KEY),
-        AsyncStorage.getItem(ACCENT_STORAGE_KEY),
+        AsyncStorage.getItem(themeKey(username)),
+        AsyncStorage.getItem(accentKey(username)),
       ]);
-      if (savedTheme === 'dark' || savedTheme === 'light') setThemeName(savedTheme);
-      if (savedAccent && savedAccent in accents) setAccentName(savedAccent as AccentName);
+      setThemeName(savedTheme === 'light' ? 'light' : 'dark');
+      setAccentName(savedAccent && savedAccent in accents ? (savedAccent as AccentName) : 'red');
     };
     load();
-  }, []);
+  }, [username]);
 
-  const toggleTheme = async () => {
+const toggleTheme = async () => {
     const next: ThemeName = themeName === 'dark' ? 'light' : 'dark';
     setThemeName(next);
-    await AsyncStorage.setItem(THEME_STORAGE_KEY, next);
+    await AsyncStorage.setItem(themeKey(username), next);
   };
 
   const setAccent = async (accent: AccentName) => {
     setAccentName(accent);
-    await AsyncStorage.setItem(ACCENT_STORAGE_KEY, accent);
+    await AsyncStorage.setItem(accentKey(username), accent);
   };
 
   const theme = useMemo(

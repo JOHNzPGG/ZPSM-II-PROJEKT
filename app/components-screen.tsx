@@ -2,7 +2,7 @@
 // Ekran komponentów z filtrowaniem po kategorii i ekranem szczegółów
 
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,

@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -16,19 +15,21 @@ import {
   Text,
   View,
 } from 'react-native';
+import {
+  Build,
+  clearActiveUser,
+  getActiveUser,
+  getUserAvatar,
+  getUserBuilds,
+  saveUserAvatar
+} from '../services/storageService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DummyBottomNav, { NavKey } from '../components/DummyBottomNav';
 import CustomAlert, { AlertConfig } from '../components/CustomAlert';
 import ComponentsScreen from './components-screen';
-import ConfigsScreen, { Build } from './configs-screen';
+import ConfigsScreen from './configs-screen';
 import CompareScreen from './compare-screen';
 import UpgradesScreen from './upgrades-screen';
-import {
-  ACTIVE_USER_KEY,
-  LEGACY_USERNAME_KEY,
-  userAvatarKey,
-  userConfigsKey,
-} from '../constants/storageKeys';
 import { AccentName, AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
 // ─── Accent picker data ──────────────────────────────────────────────────────
@@ -53,8 +54,8 @@ type CardDef = {
 const CARDS: CardDef[] = [
   { title: 'Komponenty',   desc: 'CPU, GPU, RAM, dyski',     icon: 'chip',                  iconLib: 'mci', accent: false, navTarget: 'components' },
   { title: 'Konfiguracje', desc: 'Twoje zestawy',            icon: 'monitor-dashboard',     iconLib: 'mci', accent: true,  navTarget: 'configs'    },
-  { title: 'Porównanie',   desc: 'Zestawiaj komponenty',     icon: 'git-compare-outline',   iconLib: 'ion', accent: false, navTarget: 'threed'     },
-  { title: 'Ulepszenia',   desc: 'Propozycje modernizacji',  icon: 'rocket-outline',        iconLib: 'ion', accent: false, navTarget: 'upgrades' as NavKey },
+  { title: 'Porównanie',   desc: 'Zestawiaj komponenty',     icon: 'git-compare-outline',   iconLib: 'ion', accent: false, navTarget: 'compare'     },
+  { title: 'Ulepszenia',   desc: 'Propozycje modernizacji',  icon: 'rocket-outline',        iconLib: 'ion', accent: false, navTarget: 'upgrades' },
 ];
 
 export default function HomeScreen() {
@@ -90,28 +91,24 @@ export default function HomeScreen() {
   const slideAnim = useRef(new Animated.Value(24)).current;
 
   useEffect(() => {
-    const loadUser = async () => {
-      const activeUser =
-        (await AsyncStorage.getItem(ACTIVE_USER_KEY)) ??
-        (await AsyncStorage.getItem(LEGACY_USERNAME_KEY));
-      if (activeUser) {
-        setUsername(activeUser);
-        const savedAvatar = await AsyncStorage.getItem(userAvatarKey(activeUser));
-        if (savedAvatar) setAvatarUri(savedAvatar);
-        const rawConfigs = await AsyncStorage.getItem(userConfigsKey(activeUser));
-        const parsed = rawConfigs ? JSON.parse(rawConfigs) : [];
-        const parsedBuilds: Build[] = Array.isArray(parsed) ? parsed : [];
-        setConfigsCount(parsedBuilds.length);
-        setBuilds(parsedBuilds);
-      }
-    };
-    loadUser();
+      const loadUser = async () => {
+        const activeUser = await getActiveUser();
+        if (activeUser) {
+          setUsername(activeUser);
+          const savedAvatar = await getUserAvatar(activeUser);
+          if (savedAvatar) setAvatarUri(savedAvatar);
+          const parsedBuilds = await getUserBuilds(activeUser);
+          setConfigsCount(parsedBuilds.length);
+          setBuilds(parsedBuilds);
+        }
+      };
+      loadUser();
 
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-    ]).start();
-  }, []);
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    }, []);
 
   // Re-animate on tab change
   useEffect(() => {
@@ -142,11 +139,11 @@ export default function HomeScreen() {
         quality: 0.6,
         base64: false,
       });
-      if (!result.canceled && result.assets?.[0]?.uri) {
+        if (!result.canceled && result.assets?.[0]?.uri) {
         const uri = result.assets[0].uri;
         setAvatarUri(uri);
         if (username) {
-          await AsyncStorage.setItem(userAvatarKey(username), uri);
+          await saveUserAvatar(username, uri);
         }
       }
     } catch (e) {
@@ -160,22 +157,22 @@ export default function HomeScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Zmień użytkownika',
-      'Aktywny pseudonim zostanie odłączony od aplikacji. Konfiguracje zostaną zachowane.',
-      [
-        { text: 'Anuluj', style: 'cancel' },
-        {
-          text: 'Wyloguj',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.multiRemove([ACTIVE_USER_KEY, LEGACY_USERNAME_KEY]);
-            router.replace('/setup');
+      Alert.alert(
+        'Zmień użytkownika',
+        'Aktywny pseudonim zostanie odłączony od aplikacji. Konfiguracje zostaną zachowane.',
+        [
+          { text: 'Anuluj', style: 'cancel' },
+          {
+            text: 'Wyloguj',
+            style: 'destructive',
+            onPress: async () => {
+              await clearActiveUser();
+              router.replace('/setup');
+            },
           },
-        },
-      ],
-    );
-  };
+        ],
+      );
+    };
 
   // ─── Render helpers ─────────────────────────────────────────────────────────
 
@@ -299,19 +296,6 @@ export default function HomeScreen() {
     </>
   );
 
-  const renderPlaceholder = (title: string, desc: string, iconName: string) => (
-    <View style={styles.placeholder}>
-      <View style={styles.placeholderIconWrap}>
-        <Ionicons name={iconName as any} size={40} color={theme.primary2} />
-      </View>
-      <Text style={styles.placeholderTitle}>{title}</Text>
-      <Text style={styles.placeholderDesc}>{desc}</Text>
-      <View style={styles.placeholderBadge}>
-        <Text style={styles.placeholderBadgeText}>Wkrótce</Text>
-      </View>
-    </View>
-  );
-
   // Components tab renders its own full-screen scroll — bypass the shared ScrollView
   if (activeView === 'components') {
     return (
@@ -323,7 +307,7 @@ export default function HomeScreen() {
   }
 
   // Upgrades tab — full screen
-  if (activeView === ('upgrades' as any)) {
+  if (activeView === 'upgrades') {
     return (
       <View style={styles.screen}>
         <UpgradesScreen />
@@ -333,7 +317,7 @@ export default function HomeScreen() {
   }
 
   // Compare tab — full screen
-  if (activeView === 'threed') {
+  if (activeView === 'compare') {
     return (
       <View style={styles.screen}>
         <CompareScreen />
@@ -354,7 +338,6 @@ export default function HomeScreen() {
 
   const renderContent = () => {
     if (activeView === 'profile') return renderProfile();
-    if (activeView === 'threed') return null; // handled below as full-screen
     return renderHome();
   };
 
@@ -370,6 +353,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       <DummyBottomNav active={activeView} onChange={setActiveView} />
+      <CustomAlert config={customAlert} onDismiss={() => setCustomAlert(null)} />
     </View>
   );
 }

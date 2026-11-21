@@ -74,8 +74,8 @@ export const MOCK_COMPONENTS: Component[] = [
   {
     id: 'cpu-006',
     type: 'CPU', brand: 'Intel', generation: 'Raptor Lake Refresh',
-    name: 'Core i9-14900K',
-    price: 2199,
+    name: 'Core i9-14900KF',
+    price: 1949,
     score: 82,
     description: 'Flagowy Intel desktop. Najwyższy takt boost na rynku — 6.0 GHz. Król wydajności jednowątkowej.',
     specs: { Rdzenie: 24, Wątki: 32, 'Takt bazowy': '3.2 GHz', 'Takt boost': '6.0 GHz', TDP: '125 W', Socket: 'LGA1700', Cache: '68 MB', Litografia: '10 nm' },
@@ -83,8 +83,8 @@ export const MOCK_COMPONENTS: Component[] = [
   {
     id: 'cpu-007',
     type: 'CPU', brand: 'Intel', generation: 'Alder Lake',
-    name: 'Core i5-12400F',
-    price: 449,
+    name: 'Core i5-12400',
+    price: 549,
     score: 38,
     description: 'Budżetowy Intel LGA1700 bez układu graficznego. Zaskakująco dobra wydajność w tej cenie.',
     specs: { Rdzenie: 6, Wątki: 12, 'Takt bazowy': '2.5 GHz', 'Takt boost': '4.4 GHz', TDP: '65 W', Socket: 'LGA1700', Cache: '18 MB', Litografia: '10 nm' },

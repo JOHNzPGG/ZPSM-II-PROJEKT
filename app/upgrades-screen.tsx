@@ -1,8 +1,4 @@
-// app/upgrades-screen.tsx
-// Ekran ulepszen — sugestie modernizacji zestawu z oceną opłacalności 1-10
-
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -12,19 +8,15 @@ import {
   StyleSheet,
   Text,
   View,
+  ActivityIndicator,
 } from 'react-native';
-import {
-  ACTIVE_USER_KEY,
-  LEGACY_USERNAME_KEY,
-  userConfigsKey,
-} from '../constants/storageKeys';
-import { Build } from './configs-screen';
 import { BuildSlots } from '../components/BuildConfigurator';
+import { Build, getActiveUser, getUserBuilds } from '../services/storageService';
 import {
   CategoryUpgrade,
-  UpgradeOption,
   getUpgradeSuggestions,
-} from '../constants/upgradeEngine';
+  UpgradeOption,
+} from '../services/upgradeService';
 import { AppTheme, useAppTheme } from '../contexts/AppThemeContext';
 
 // ─── Tier config ──────────────────────────────────────────────────────────────
@@ -61,13 +53,9 @@ export default function UpgradesScreen() {
 
   const loadBuilds = async () => {
     try {
-      const user =
-        (await AsyncStorage.getItem(ACTIVE_USER_KEY)) ??
-        (await AsyncStorage.getItem(LEGACY_USERNAME_KEY));
-      if (!user) { setLoading(false); return; }
-      const raw = await AsyncStorage.getItem(userConfigsKey(user));
-      const parsed: Build[] = raw ? JSON.parse(raw) : [];
-      setBuilds(parsed);
+      const user = await getActiveUser();
+      if (!user) return;
+      setBuilds(await getUserBuilds(user));
     } catch (e) {
       console.error(e);
     } finally {
@@ -415,9 +403,6 @@ function StatPill({ label, value, color, theme }: { label: string; value: string
     </View>
   );
 }
-
-// Dummy ActivityIndicator import fix
-const ActivityIndicator = require('react-native').ActivityIndicator;
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

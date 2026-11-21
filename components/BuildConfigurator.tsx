@@ -1,8 +1,8 @@
 // components/BuildConfigurator.tsx
 // Interaktywny konfigurator zestawu PC — SVG obudowa + sloty + bottom sheet wyboru
 
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -19,8 +19,7 @@ import Svg, {
   Polyline,
   Defs,
   Marker,
-  Rect,
-  G,
+  Rect
 } from 'react-native-svg';
 import {
   Component,
